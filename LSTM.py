@@ -5,7 +5,7 @@ import tensorflow as tf
 from sklearn.preprocessing import MinMaxScaler
 from sklearn.metrics import mean_absolute_error, mean_squared_error
 from tensorflow.keras.models import Sequential
-from tensorflow.keras.layers import GRU, Dense, Dropout
+from tensorflow.keras.layers import LSTM, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 from tensorflow.keras.models import load_model
 import matplotlib.pyplot as plt
@@ -17,9 +17,9 @@ SEQ_LENGTH = 24
 EPOCHS = 50
 BATCH_SIZE = 32
 TEST_SPLIT = 0.2
-MODEL_SAVE_PATH = 'models/gru_model.keras'
-SCALER_SAVE_PATH = 'models/gru_scaler.pkl'
-ENCODER_SAVE_PATH = 'models/gru_label_encoder.pkl'
+MODEL_SAVE_PATH = 'models/lstm_model.keras'
+SCALER_SAVE_PATH = 'models/lstm_scaler.pkl'
+ENCODER_SAVE_PATH = 'models/lstm_label_encoder.pkl'
 
 
 def load_data():
@@ -45,7 +45,7 @@ def load_data():
     return result
 
 
-# Normalise features and create sequences for GRU input
+# Normalise features and create sequences for LSTM input
 def preprocess(df):
     from sklearn.preprocessing import LabelEncoder
 
@@ -53,7 +53,7 @@ def preprocess(df):
     df['location_enc'] = le.fit_transform(df['location'])
 
     os.makedirs('models', exist_ok=True)
-    with open('models/gru_label_encoder.pkl', 'wb') as f:
+    with open(ENCODER_SAVE_PATH, 'wb') as f:
         pickle.dump(le, f)
 
     features = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
@@ -79,11 +79,11 @@ def create_sequences(data, seq_length):
     return np.array(X), np.array(y)
 
 
-def build_gru(input_shape):
+def build_lstm(input_shape):
     model = Sequential([
-        GRU(64, return_sequences=True, input_shape=input_shape),
+        LSTM(64, return_sequences=True, input_shape=input_shape),
         Dropout(0.2),
-        GRU(32, return_sequences=False),
+        LSTM(32, return_sequences=False),
         Dropout(0.2),
         Dense(16, activation='relu'),
         Dense(1)
@@ -117,7 +117,7 @@ def evaluate(model, X_test, y_test, scaler):
 
     # model studies the data and learns the patterns
     # MAE,RMSE and MAPE measures how far off the pattern was
-    print("\n GRU Evaluation Results:")
+    print("\n LSTM Evaluation Results:")
     print(f"   MAE:  {mae:.2f} vehicles/hour") # Actual
     print(f"   RMSE: {rmse:.2f} vehicles/hour") # Predicted
     print(f"   MAPE: {mape:.2f}%") # average error as a percentage of the actual value
@@ -126,7 +126,7 @@ def evaluate(model, X_test, y_test, scaler):
 
 
 # showing a graph of what it predicted vs what it actually got based on the dataset
-def plot_results(y_actual, y_pred, title='GRU Predictions vs Actual'):
+def plot_results(y_actual, y_pred, title='LSTM Predictions vs Actual'):
     plt.figure(figsize=(12, 5))
     plt.plot(y_actual[:100], label='Actual', color='blue')
     plt.plot(y_pred[:100], label='Predicted', color='orange', linestyle='--')
@@ -135,14 +135,13 @@ def plot_results(y_actual, y_pred, title='GRU Predictions vs Actual'):
     plt.ylabel('Flow (vehicles/hour)')
     plt.legend()
     plt.tight_layout()
-    plt.savefig('models/gru_predictions.png')
     plt.show()
-    print(" Plot saved to models/gru_predictions.png")
+
 
 # trains the model base on the time.csv dataset
 def main():
     print("=" * 50)
-    print(" GRU Training ")
+    print(" LSTM Training ")
     print("=" * 50)
 
     df = load_data()
@@ -155,11 +154,11 @@ def main():
     X_train, X_test = X[:split], X[split:]
     y_train, y_test = y[:split], y[split:]
 
-    model = build_gru(input_shape=(SEQ_LENGTH, X.shape[2]))
+    model = build_lstm(input_shape=(SEQ_LENGTH, X.shape[2]))
 
     early_stop = EarlyStopping(monitor='val_loss', patience=5, restore_best_weights=True)
 
-    print("\n Training GRU...")
+    print("\n Training LSTM...")
     history = model.fit(
         X_train, y_train,
         epochs=EPOCHS,
@@ -179,7 +178,7 @@ def main():
 
 # testing specific route
 
-def test_prediction(site_id, location ,hour, model, scaler, le):
+def test_prediction(site_id, location, hour, model, scaler, le):
     # Load data and find real sequences for this site and hour
     df = load_data()
     
