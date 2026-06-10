@@ -19,10 +19,11 @@ BATCH_SIZE = 32
 TEST_SPLIT = 0.2
 MODEL_SAVE_PATH = 'models/gru_model.keras'
 SCALER_SAVE_PATH = 'models/gru_scaler.pkl'
+ENCODER_SAVE_PATH = 'models/gru_label_encoder.pkl'
 
 
 def load_data():
-    df = pd.read_csv('../../Dataset/Time.csv')
+    df = pd.read_csv('Dataset/Time.csv')
     
     # Hour columns and their numeric values
     hour_cols = ['12AM','1AM','2AM','3AM','4AM','5AM','6AM','7AM',
@@ -34,31 +35,39 @@ def load_data():
     for _, row in df.iterrows():
         for hour_num, col in enumerate(hour_cols):
             rows.append({
-                'scats_number': row['SCATS Number'],
-                'hour': hour_num,
+                'scats_number':  row['SCATS Number'],
+                'location':      row['Location'],
+                'hour':          hour_num,
                 'flow_per_hour': row[col]
             })
     
     result = pd.DataFrame(rows)
-    # print(f" Data loaded: {result.shape[0]} rows, {result.shape[1]} columns")
-    # print(result.head())
     return result
 
 
-# Normalise features and create sequences for LSTM input
+# Normalise features and create sequences for GRU input
 def preprocess(df):
-    features = ['scats_number', 'hour', 'flow_per_hour']
+    from sklearn.preprocessing import LabelEncoder
+
+    le = LabelEncoder()
+    df['location_enc'] = le.fit_transform(df['location'])
+
+    os.makedirs('models', exist_ok=True)
+    with open('models/gru_label_encoder.pkl', 'wb') as f:
+        pickle.dump(le, f)
+
+    features = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
     data = df[features].values
 
     scaler = MinMaxScaler()
     data_scaled = scaler.fit_transform(data)
 
-    os.makedirs('models', exist_ok=True)
+    
     with open(SCALER_SAVE_PATH, 'wb') as f:
         pickle.dump(scaler, f)
     print(f" Scaler saved to {SCALER_SAVE_PATH}")
 
-    return data_scaled, scaler
+    return data_scaled, scaler, le
 
 
 
@@ -137,7 +146,7 @@ def main():
     print("=" * 50)
 
     df = load_data()
-    data_scaled, scaler = preprocess(df)
+    data_scaled, scaler, le = preprocess(df)
 
     X, y = create_sequences(data_scaled, SEQ_LENGTH)
     print(f" Sequences created: X={X.shape}, y={y.shape}")
@@ -157,7 +166,7 @@ def main():
         batch_size=BATCH_SIZE,
         validation_split=0.1,
         callbacks=[early_stop],
-        verbose=0
+        verbose=1
     )
 
     model.save(MODEL_SAVE_PATH)
@@ -168,61 +177,61 @@ def main():
 
     return mae, rmse, mape
 
+# testing specific route
+
+def test_prediction(site_id, location ,hour, model, scaler, le):
+    # Load data and find real sequences for this site and hour
+    df = load_data()
+    
+    # Filter for specific site
+    site_data = df[
+        (df['scats_number'] == site_id) &
+        (df['location'] == location)
+    ].copy()
+    
+    if len(site_data) < SEQ_LENGTH + 1:
+        print(f"Not enough data for site {site_id}")
+        return
+    
+    # Normalise
+    location_enc = le.transform([location])[0]
+    site_data ['location_enc'] = location_enc
+    features = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
+    data_scaled = scaler.transform(site_data[features].values)
+    
+    # Find a sequence ending at the target hour
+    for i in range(len(data_scaled) - SEQ_LENGTH):
+        if site_data.iloc[i + SEQ_LENGTH]['hour'] == hour:
+            sequence = data_scaled[i:i + SEQ_LENGTH].reshape(1, SEQ_LENGTH, 3)
+            prediction_scaled = model.predict(sequence, verbose=0)
+            dummy = np.zeros((1, 4))
+            dummy[0, -1] = prediction_scaled[0][0]
+            predicted_flow = scaler.inverse_transform(dummy)[0, -1]
+            print(f"\nSite {site_id} at {hour}:00")
+            print(f"Location: {location}")
+            print(f"Predicted Flow: {predicted_flow:.0f} vehicles/hour\n")
+            return
+    
+    print(f"Hour {hour} not found for site {site_id}")
+
+    
 if __name__ == '__main__':
     main()
 
+    model = load_model(MODEL_SAVE_PATH)
+    with open(SCALER_SAVE_PATH, 'rb') as f:
+        scaler = pickle.load(f)
+    with open(ENCODER_SAVE_PATH, 'rb') as f:
+        le = pickle.load(f)
 
+    print("\n" + "=" * 55)
+    print("  Running test predictions ...")
+    print("=" * 55)
 
-
-
-
-
-    
-
-# testing specific route
-# data was not showing accurate data so had to load the dataset in
-# def test_prediction(site_id, hour, model, scaler):
-#     # Load data and find real sequences for this site and hour
-#     df = load_data()
-    
-#     # Filter for specific site
-#     site_data = df[df['scats_number'] == site_id].copy()
-    
-#     if len(site_data) < SEQ_LENGTH + 1:
-#         print(f"Not enough data for site {site_id}")
-#         return
-    
-#     # Normalise
-#     features = ['scats_number', 'hour', 'flow_per_hour']
-#     data_scaled = scaler.transform(site_data[features].values)
-    
-#     # Find a sequence ending at the target hour
-#     for i in range(len(data_scaled) - SEQ_LENGTH):
-#         if site_data.iloc[i + SEQ_LENGTH]['hour'] == hour:
-#             sequence = data_scaled[i:i + SEQ_LENGTH].reshape(1, SEQ_LENGTH, 3)
-#             prediction_scaled = model.predict(sequence, verbose=0)
-#             dummy = np.zeros((1, 3))
-#             dummy[0, -1] = prediction_scaled[0][0]
-#             predicted_flow = scaler.inverse_transform(dummy)[0, -1]
-#             print(f"\nSite {site_id} at {hour}:00")
-#             print(f"Predicted Flow: {predicted_flow:.0f} vehicles/hour\n")
-#             return
-    
-#     print(f"Hour {hour} not found for site {site_id}")
-
-    
-
-
-
-    # model = load_model(MODEL_SAVE_PATH)
-    # with open(SCALER_SAVE_PATH, 'rb') as f:
-    #     scaler = pickle.load(f)
-
-    # df = load_data()
-
-    # test_prediction(2000, 8, model, scaler)
-    # test_prediction(2000, 3, model, scaler)
-    # test_prediction(3002, 17, model, scaler)
+    test_prediction(2000, 'AUBURN_RD N of BURWOOD_RD', 8, model, scaler, le)    # morning peak
+    test_prediction(2000, 'BURKE_RD N of TOORAK_RD', 17, model, scaler, le)     # evening peak
+    test_prediction(3002, 'CANTERBURY_RD E of BURKE_RD', 3, model, scaler, le)  # late night
+    test_prediction(3002, 'DENMARK_ST N of BARKERS_RD', 12, model, scaler, le)  #  midday
 
 
     
