@@ -168,49 +168,61 @@ def main():
 
     return mae, rmse, mape
 
-# testing specific route
-# data was not showing accurate data so had to load the dataset in
-def test_prediction(site_id, hour, model, scaler):
-    # Load data and find real sequences for this site and hour
-    df = load_data()
-    
-    # Filter for specific site
-    site_data = df[df['scats_number'] == site_id].copy()
-    
-    if len(site_data) < SEQ_LENGTH + 1:
-        print(f"Not enough data for site {site_id}")
-        return
-    
-    # Normalise
-    features = ['scats_number', 'hour', 'flow_per_hour']
-    data_scaled = scaler.transform(site_data[features].values)
-    
-    # Find a sequence ending at the target hour
-    for i in range(len(data_scaled) - SEQ_LENGTH):
-        if site_data.iloc[i + SEQ_LENGTH]['hour'] == hour:
-            sequence = data_scaled[i:i + SEQ_LENGTH].reshape(1, SEQ_LENGTH, 3)
-            prediction_scaled = model.predict(sequence, verbose=0)
-            dummy = np.zeros((1, 3))
-            dummy[0, -1] = prediction_scaled[0][0]
-            predicted_flow = scaler.inverse_transform(dummy)[0, -1]
-            print(f"\nSite {site_id} at {hour}:00")
-            print(f"Predicted Flow: {predicted_flow:.0f} vehicles/hour\n")
-            return
-    
-    print(f"Hour {hour} not found for site {site_id}")
-
-    
-
 if __name__ == '__main__':
     main()
 
-    model = load_model(MODEL_SAVE_PATH)
-    with open(SCALER_SAVE_PATH, 'rb') as f:
-        scaler = pickle.load(f)
 
-    test_prediction(2000, 8, model, scaler)
-    test_prediction(2000, 3, model, scaler)
-    test_prediction(3002, 17, model, scaler)
+
+
+
+
+
+    
+
+# testing specific route
+# data was not showing accurate data so had to load the dataset in
+# def test_prediction(site_id, hour, model, scaler):
+#     # Load data and find real sequences for this site and hour
+#     df = load_data()
+    
+#     # Filter for specific site
+#     site_data = df[df['scats_number'] == site_id].copy()
+    
+#     if len(site_data) < SEQ_LENGTH + 1:
+#         print(f"Not enough data for site {site_id}")
+#         return
+    
+#     # Normalise
+#     features = ['scats_number', 'hour', 'flow_per_hour']
+#     data_scaled = scaler.transform(site_data[features].values)
+    
+#     # Find a sequence ending at the target hour
+#     for i in range(len(data_scaled) - SEQ_LENGTH):
+#         if site_data.iloc[i + SEQ_LENGTH]['hour'] == hour:
+#             sequence = data_scaled[i:i + SEQ_LENGTH].reshape(1, SEQ_LENGTH, 3)
+#             prediction_scaled = model.predict(sequence, verbose=0)
+#             dummy = np.zeros((1, 3))
+#             dummy[0, -1] = prediction_scaled[0][0]
+#             predicted_flow = scaler.inverse_transform(dummy)[0, -1]
+#             print(f"\nSite {site_id} at {hour}:00")
+#             print(f"Predicted Flow: {predicted_flow:.0f} vehicles/hour\n")
+#             return
+    
+#     print(f"Hour {hour} not found for site {site_id}")
+
+    
+
+
+
+    # model = load_model(MODEL_SAVE_PATH)
+    # with open(SCALER_SAVE_PATH, 'rb') as f:
+    #     scaler = pickle.load(f)
+
+    # df = load_data()
+
+    # test_prediction(2000, 8, model, scaler)
+    # test_prediction(2000, 3, model, scaler)
+    # test_prediction(3002, 17, model, scaler)
 
 
     
