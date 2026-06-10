@@ -87,7 +87,7 @@ def load_data():
     Each row = one site + location + hour observation.
     'Location' is kept so we can distinguish directions at the same site.
     """
-    df = pd.read_csv('Dataset/Time.csv')
+    df = pd.read_csv('../../Dataset/Time.csv')
 
     hour_cols = [
         '12AM', '1AM',  '2AM',  '3AM',  '4AM',  '5AM',
