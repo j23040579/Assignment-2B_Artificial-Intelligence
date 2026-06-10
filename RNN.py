@@ -33,9 +33,9 @@ SEQ_LENGTH        = 3
 EPOCHS            = 50
 BATCH_SIZE        = 32
 TEST_SPLIT        = 0.2
-MODEL_SAVE_PATH   = 'models/rnn_model.keras'
-SCALER_SAVE_PATH  = 'models/rnn_scaler.pkl'
-ENCODER_SAVE_PATH = 'models/rnn_label_encoder.pkl'
+MODEL_SAVE_PATH   = 'machine_learning/trained_models/models/rnn_model.keras'
+SCALER_SAVE_PATH  = 'machine_learning/trained_models/models/rnn_scaler.pkl'
+ENCODER_SAVE_PATH = 'machine_learning/trained_models/models/rnn_label_encoder.pkl'
 
 # All artefacts that must be present to skip training
 REQUIRED_ARTEFACTS = [MODEL_SAVE_PATH, SCALER_SAVE_PATH, ENCODER_SAVE_PATH]
@@ -87,7 +87,7 @@ def load_data():
     Each row = one site + location + hour observation.
     'Location' is kept so we can distinguish directions at the same site.
     """
-    df = pd.read_csv('../../Dataset/Time.csv')
+    df = pd.read_csv('Dataset/Time.csv')
 
     hour_cols = [
         '12AM', '1AM',  '2AM',  '3AM',  '4AM',  '5AM',
@@ -245,7 +245,7 @@ def train_and_save() -> tuple:
         verbose=1
     )
 
-    os.makedirs('models', exist_ok=True)
+    os.makedirs('machine_learning/trained_models/models', exist_ok=True)
     model.save(MODEL_SAVE_PATH)
     print(f"\n Model saved  → {MODEL_SAVE_PATH}")
 
