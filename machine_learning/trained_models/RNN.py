@@ -10,6 +10,10 @@ Key change vs original:
     scats_number, hour, and flow_per_hour.
   - test_prediction() now accepts a `location` string so you can target
     a specific approach direction at a site.
+  - main() now checks if all model artefacts (.keras + .pkl files) already
+    exist on disk; if they do, training is skipped and the saved files are
+    loaded directly.  Only when at least one artefact is missing will the
+    full training pipeline run.
 """
 
 import os
@@ -25,13 +29,55 @@ from tensorflow.keras.layers import SimpleRNN, Dense, Dropout
 from tensorflow.keras.callbacks import EarlyStopping
 
 # ── Configuration ─────────────────────────────────────────────────────────────
-SEQ_LENGTH       = 24
-EPOCHS           = 50
-BATCH_SIZE       = 32
-TEST_SPLIT       = 0.2
-MODEL_SAVE_PATH  = 'models/rnn_model.keras'
-SCALER_SAVE_PATH = 'models/rnn_scaler.pkl'
+SEQ_LENGTH        = 3
+EPOCHS            = 50
+BATCH_SIZE        = 32
+TEST_SPLIT        = 0.2
+MODEL_SAVE_PATH   = 'models/rnn_model.keras'
+SCALER_SAVE_PATH  = 'models/rnn_scaler.pkl'
 ENCODER_SAVE_PATH = 'models/rnn_label_encoder.pkl'
+
+# All artefacts that must be present to skip training
+REQUIRED_ARTEFACTS = [MODEL_SAVE_PATH, SCALER_SAVE_PATH, ENCODER_SAVE_PATH]
+
+
+# ── 0. Artefact check ─────────────────────────────────────────────────────────
+def all_artefacts_exist() -> bool:
+    """
+    Return True only when every required model artefact exists on disk.
+    If even one file is missing, training must run so the set is complete.
+    """
+    missing = [p for p in REQUIRED_ARTEFACTS if not os.path.isfile(p)]
+    if missing:
+        print("\n The following artefacts are missing – training will run:")
+        for p in missing:
+            print(f"   ✗  {p}")
+        return False
+
+    print("\n All model artefacts found – skipping training:")
+    for p in REQUIRED_ARTEFACTS:
+        size_kb = os.path.getsize(p) / 1024
+        print(f"   ✔  {p}  ({size_kb:.1f} KB)")
+    return True
+
+
+# ── Helper: load saved artefacts ──────────────────────────────────────────────
+def load_artefacts():
+    """Load and return (model, scaler, label_encoder) from disk."""
+    print("\n Loading saved artefacts …")
+
+    model = load_model(MODEL_SAVE_PATH)
+    print(f"   Model   loaded  ← {MODEL_SAVE_PATH}")
+
+    with open(SCALER_SAVE_PATH, 'rb') as f:
+        scaler = pickle.load(f)
+    print(f"   Scaler  loaded  ← {SCALER_SAVE_PATH}")
+
+    with open(ENCODER_SAVE_PATH, 'rb') as f:
+        le = pickle.load(f)
+    print(f"   Encoder loaded  ← {ENCODER_SAVE_PATH}")
+
+    return model, scaler, le
 
 
 # ── 1. Load data ──────────────────────────────────────────────────────────────
@@ -44,9 +90,10 @@ def load_data():
     df = pd.read_csv('Dataset/Time.csv')
 
     hour_cols = [
-        '12AM','1AM','2AM','3AM','4AM','5AM','6AM','7AM',
-        '8AM','9AM','10AM','11AM','12PM','13PM','14PM','15PM',
-        '16PM','17PM','18PM','19PM','20PM','21PM','22PM','23PM'
+        '12AM', '1AM',  '2AM',  '3AM',  '4AM',  '5AM',
+        '6AM',  '7AM',  '8AM',  '9AM',  '10AM', '11AM',
+        '12PM', '13PM', '14PM', '15PM', '16PM', '17PM',
+        '18PM', '19PM', '20PM', '21PM', '22PM', '23PM'
     ]
 
     rows = []
@@ -54,7 +101,7 @@ def load_data():
         for hour_num, col in enumerate(hour_cols):
             rows.append({
                 'scats_number':  row['SCATS Number'],
-                'location':      row['Location'],       # direction string
+                'location':      row['Location'],
                 'hour':          hour_num,
                 'flow_per_hour': row[col]
             })
@@ -69,7 +116,6 @@ def preprocess(df):
     - Scale [scats_number, location_enc, hour, flow_per_hour] to [0,1]
     - Save both the scaler and the label encoder for later inference
     """
-    # Encode location strings to integers
     le = LabelEncoder()
     df['location_enc'] = le.fit_transform(df['location'])
 
@@ -81,10 +127,9 @@ def preprocess(df):
     for i, loc in enumerate(le.classes_):
         print(f"   [{i}] {loc}")
 
-    features = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
-    data = df[features].values
-
-    scaler = MinMaxScaler()
+    features    = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
+    data        = df[features].values
+    scaler      = MinMaxScaler()
     data_scaled = scaler.fit_transform(data)
 
     with open(SCALER_SAVE_PATH, 'wb') as f:
@@ -106,8 +151,8 @@ def create_sequences(data, seq_length):
 # ── 4. Build model ────────────────────────────────────────────────────────────
 def build_rnn(input_shape):
     """
-    Two-layer SimpleRNN with Dropout, matching GRU.py's capacity.
-    Input now has 4 features: scats_number, location_enc, hour, flow_per_hour
+    Two-layer SimpleRNN with Dropout.
+    Input has 4 features: scats_number, location_enc, hour, flow_per_hour.
     """
     model = Sequential([
         SimpleRNN(64, return_sequences=True,  input_shape=input_shape,
@@ -168,47 +213,66 @@ def plot_results(y_actual, y_pred, title='RNN Predictions vs Actual'):
     print(" Plot saved to models/rnn_predictions.png")
 
 
-# ── 7. Train ──────────────────────────────────────────────────────────────────
-def main():
-    print("=" * 50)
-    print(" RNN Training")
-    print("=" * 50)
+# ── 7. Train pipeline ─────────────────────────────────────────────────────────
+def train_and_save() -> tuple:
+    """
+    Full training pipeline.  Returns (model, scaler, le, mae, rmse, mape).
+    Called only when at least one artefact is missing.
+    """
+    print("\n Starting full training pipeline …")
 
-    df = load_data()
-    data_scaled, scaler, le = preprocess(df)
+    df                       = load_data()
+    data_scaled, scaler, le  = preprocess(df)
 
     X, y = create_sequences(data_scaled, SEQ_LENGTH)
     print(f" Sequences created: X={X.shape}, y={y.shape}")
 
-    split = int(len(X) * (1 - TEST_SPLIT))
-    X_train, X_test = X[:split], X[split:]
-    y_train, y_test = y[:split], y[split:]
+    split                    = int(len(X) * (1 - TEST_SPLIT))
+    X_train, X_test          = X[:split], X[split:]
+    y_train, y_test          = y[:split], y[split:]
 
-    model = build_rnn(input_shape=(SEQ_LENGTH, X.shape[2]))
+    model                    = build_rnn(input_shape=(SEQ_LENGTH, X.shape[2]))
+    early_stop               = EarlyStopping(monitor='val_loss', patience=5,
+                                             restore_best_weights=True)
 
-    early_stop = EarlyStopping(monitor='val_loss', patience=5,
-                               restore_best_weights=True)
-
-    print("\n Training RNN...")
+    print("\n Training RNN …")
     model.fit(
         X_train, y_train,
         epochs=EPOCHS,
         batch_size=BATCH_SIZE,
         validation_split=0.1,
         callbacks=[early_stop],
-        verbose=0
+        verbose=1
     )
 
+    os.makedirs('models', exist_ok=True)
     model.save(MODEL_SAVE_PATH)
-    print(f"\n Model saved to {MODEL_SAVE_PATH}")
+    print(f"\n Model saved  → {MODEL_SAVE_PATH}")
 
     mae, rmse, mape, y_actual, y_pred = evaluate(model, X_test, y_test, scaler)
     plot_results(y_actual, y_pred)
 
-    return mae, rmse, mape
+    return model, scaler, le, mae, rmse, mape
 
 
-# ── 8. Test a specific site + direction + hour ────────────────────────────────
+# ── 8. Main entry ─────────────────────────────────────────────────────────────
+def main():
+    print("=" * 55)
+    print("  RNN – Traffic Prediction")
+    print("=" * 55)
+
+    if all_artefacts_exist():
+        # ── Fast path: every artefact is already on disk ──────────────────
+        model, scaler, le = load_artefacts()
+    else:
+        # ── Slow path: train from scratch and save artefacts ──────────────
+        model, scaler, le, mae, rmse, mape = train_and_save()
+        print(f"\n Training complete  |  MAE={mae:.2f}  RMSE={rmse:.2f}  MAPE={mape:.2f}%")
+
+    return model, scaler, le
+
+
+# ── 9. Test a specific site + direction + hour ────────────────────────────────
 def test_prediction(site_id, location, hour, model, scaler, le):
     """
     Predict traffic flow for a specific site, direction, and hour.
@@ -221,14 +285,7 @@ def test_prediction(site_id, location, hour, model, scaler, le):
     model    : trained Keras model
     scaler   : fitted MinMaxScaler
     le       : fitted LabelEncoder for locations
-
-    Available directions for site 2000:
-      'WARRIGAL_RD N of TOORAK_RD'
-      'BURWOOD_HWY E of WARRIGAL_RD'
-      'WARRIGAL_RD S of BURWOOD_HWY'
-      'TOORAK_RD W of WARRIGAL_RD'
     """
-    # Validate location string
     if location not in le.classes_:
         print(f"\n Unknown location: '{location}'")
         print(" Available locations:")
@@ -248,9 +305,9 @@ def test_prediction(site_id, location, hour, model, scaler, le):
         print(f" Not enough data for site {site_id} / {location}")
         return
 
-    features    = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
+    features              = ['scats_number', 'location_enc', 'hour', 'flow_per_hour']
     site_data['location_enc'] = location_enc
-    data_scaled = scaler.transform(site_data[features].values)
+    data_scaled           = scaler.transform(site_data[features].values)
 
     for i in range(len(data_scaled) - SEQ_LENGTH):
         if site_data.iloc[i + SEQ_LENGTH]['hour'] == hour:
@@ -259,10 +316,10 @@ def test_prediction(site_id, location, hour, model, scaler, le):
             dummy          = np.zeros((1, 4))
             dummy[0, -1]   = pred_scaled[0][0]
             predicted_flow = scaler.inverse_transform(dummy)[0, -1]
-            print(f"\n Site    : {site_id}")
-            print(f" Direction: {location}")
-            print(f" Hour     : {hour}:00")
-            print(f" Predicted Flow: {predicted_flow:.0f} vehicles/hour\n")
+            print(f"\n Site      : {site_id}")
+            print(f" Direction : {location}")
+            print(f" Hour      : {hour}:00")
+            print(f" Predicted : {predicted_flow:.0f} vehicles/hour\n")
             return
 
     print(f" Hour {hour} not found for site {site_id} / {location}")
@@ -270,17 +327,16 @@ def test_prediction(site_id, location, hour, model, scaler, le):
 
 # ── Entry point ───────────────────────────────────────────────────────────────
 if __name__ == '__main__':
-    main()
+    model, scaler, le = main()
 
-    model = load_model(MODEL_SAVE_PATH)
-    with open(SCALER_SAVE_PATH, 'rb') as f:
-        scaler = pickle.load(f)
-    with open(ENCODER_SAVE_PATH, 'rb') as f:
-        le = pickle.load(f)
+    # ── Example predictions – always runs after model is ready ───────────
+    print("\n" + "=" * 55)
+    print("  Running test predictions …")
+    print("=" * 55)
 
-    # Example predictions — site + direction + hour
     test_prediction(2000, 'WARRIGAL_RD N of TOORAK_RD',   8,  model, scaler, le)
     test_prediction(2000, 'BURWOOD_HWY E of WARRIGAL_RD', 8,  model, scaler, le)
     test_prediction(2000, 'WARRIGAL_RD S of BURWOOD_HWY', 17, model, scaler, le)
     test_prediction(2000, 'TOORAK_RD W of WARRIGAL_RD',   3,  model, scaler, le)
     test_prediction(3002, 'DENMARK_ST N of BARKERS_RD',   17, model, scaler, le)
+    test_prediction(2820, 'EARL_ST SE of PRINCESS_ST', 16, model, scaler, le)
