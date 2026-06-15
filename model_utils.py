@@ -15,8 +15,11 @@ is identical to predict_all.py, so predictions stay consistent between
 the map and the route finder.
 """
 
+import importlib
 import os
 import pickle
+import sys
+import time
 
 import numpy as np
 import pandas as pd
@@ -25,15 +28,102 @@ from tensorflow.keras.models import load_model
 from config import MODEL_CONFIGS, DATA_PATH, SEQ_LENGTH, HOUR_COLUMNS
 
 
+# ── Internal: map each model key to its training module filename ───────────────
+# Must match the actual .py filenames in the project root.
+_TRAINING_MODULES: dict = {
+    "RNN":  "RNN",
+    "LSTM": "LSTM",
+    "GRU":  "GRU",
+}
+
+
+def _missing_artefacts(model_name: str) -> list:
+    """
+    Return a list of (key, path) pairs for every artefact in
+    MODEL_CONFIGS[model_name] that does not yet exist on disk.
+    Returns an empty list when all artefacts are present.
+    """
+    paths = MODEL_CONFIGS[model_name]
+    return [(key, path) for key, path in paths.items() if not os.path.exists(path)]
+
+
+def _run_training(model_name: str) -> None:
+    """
+    Dynamically import the training module for *model_name* and call its
+    main() function to produce the model, scaler, and encoder artefacts.
+
+    Adds the project root to sys.path if it is not already there so that
+    RNN.py / LSTM.py / GRU.py can be imported regardless of how A2B.py
+    was launched.
+
+    Raises RuntimeError if:
+      - the training module cannot be imported
+      - main() raises an exception
+      - one or more artefact files are still missing after training
+    """
+    module_name  = _TRAINING_MODULES[model_name]
+    project_root = os.path.dirname(os.path.abspath(__file__))
+
+    if project_root not in sys.path:
+        sys.path.insert(0, project_root)
+
+    # ── Import the training script ─────────────────────────────────────────────
+    try:
+        training_module = importlib.import_module(module_name)
+    except ModuleNotFoundError as exc:
+        raise RuntimeError(
+            f"Could not import training module '{module_name}.py'. "
+            f"Make sure the file exists in the project root.\n"
+            f"Original error: {exc}"
+        ) from exc
+
+    # ── Run the training pipeline ──────────────────────────────────────────────
+    print(f"\n  Running {module_name}.main() — this may take a few minutes …")
+    t0 = time.time()
+    try:
+        training_module.main()
+    except Exception as exc:
+        raise RuntimeError(
+            f"Training pipeline for '{model_name}' raised an exception:\n{exc}"
+        ) from exc
+
+    elapsed = time.time() - t0
+
+    # ── Verify artefacts were actually written ─────────────────────────────────
+    still_missing = _missing_artefacts(model_name)
+    if still_missing:
+        missing_str = "\n".join(f"    ✗  {p}" for _, p in still_missing)
+        raise RuntimeError(
+            f"Training completed ({elapsed:.1f}s) but the following artefacts "
+            f"are still missing:\n{missing_str}\n"
+            f"Check {module_name}.py for errors."
+        )
+
+    print(f"  Training complete in {elapsed:.1f}s — artefacts saved:")
+    for _, path in MODEL_CONFIGS[model_name].items():
+        size_kb = os.path.getsize(path) / 1024
+        print(f"    ✔  {path}  ({size_kb:.1f} KB)")
+
+
 # ── 1. Load model + scaler + label encoder for the chosen model type ───────────
 def load_artefacts(model_name):
     """
     Load the (model, scaler, label_encoder) triple for the given model
     name, e.g. 'RNN', 'LSTM', or 'GRU'.
 
-    Raises a ValueError if the model name is not recognised, and a
-    FileNotFoundError (with a clear message) if any artefact file is
-    missing on disk.
+    Auto-training
+    -------------
+    If one or more of the three artefact files (model, scaler, encoder)
+    are missing from disk, the corresponding training script
+    (RNN.py / LSTM.py / GRU.py) is imported and its main() is called
+    automatically before the load is attempted again.  On subsequent
+    runs the saved artefacts are reused and training is skipped.
+
+    Raises
+    ------
+    ValueError        – model_name not in MODEL_CONFIGS
+    RuntimeError      – training pipeline failed
+    FileNotFoundError – artefacts still missing after training (safety net)
     """
     model_name = model_name.upper()
 
@@ -43,8 +133,20 @@ def load_artefacts(model_name):
             f"Unknown model type '{model_name}'. Valid options are: {valid}"
         )
 
+    # ── Check for missing artefacts; auto-train if any are absent ─────────────
+    missing = _missing_artefacts(model_name)
+    if missing:
+        print(f"\n[model_utils] Artefacts missing for '{model_name}':")
+        for key, path in missing:
+            print(f"    ✗  {key}: {path}")
+        print(f"[model_utils] Auto-training '{model_name}' now …")
+        print("=" * 60)
+        _run_training(model_name)
+        print("=" * 60)
+
     paths = MODEL_CONFIGS[model_name]
 
+    # Final guard — training should have created these, but be explicit.
     for key, path in paths.items():
         if not os.path.exists(path):
             raise FileNotFoundError(
@@ -53,7 +155,7 @@ def load_artefacts(model_name):
                 f"script from the project's root directory."
             )
 
-    print(f"Loading '{model_name}' model artefacts...")
+    print(f"\nLoading '{model_name}' model artefacts...")
     model = load_model(paths['model_path'])
 
     with open(paths['scaler_path'], 'rb') as f:
