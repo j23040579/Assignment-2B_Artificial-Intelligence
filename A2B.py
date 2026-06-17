@@ -48,8 +48,9 @@ import sys
 
 from config import COORDS, HOUR_LABELS
 from model_utils import load_artefacts, load_long_data, predict_site_flows
-from route_finder import find_best_route
+from route_finder import find_best_route,find_top_3_routes
 from route_map import build_route_map, save_and_open_map
+
 
 
 # ── Parse and validate command-line arguments ─────────────────────────────────
@@ -150,7 +151,7 @@ def main():
     print(f"Destination site : {destination}")
     print(f"Time             : {HOUR_LABELS[hour]} (hour index {hour})")
     print(f"Model            : {model_name}")
-
+    
     # ── Step 1: Load (or auto-train) the chosen model ─────────────────────────
     # load_artefacts() checks whether the model file, scaler, and label encoder
     # all exist.  If any are missing it calls train_runner.train_model() first,
@@ -204,9 +205,8 @@ def main():
     print(total_time_line)
 
     # ── Render and open map ───────────────────────────────────────────────────
-    m, output_path = build_route_map(
-        origin, destination, path, edges, site_flows, hour, total_time
-    )
+    routes = find_top_3_routes(origin, destination, site_flows)
+    m, output_path = build_route_map(origin, destination, routes, site_flows, hour)
     abs_path = save_and_open_map(m, output_path)
     print(f"\nMap saved and opened: {abs_path}")
 
