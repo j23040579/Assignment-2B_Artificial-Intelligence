@@ -115,7 +115,6 @@ def build_directed_graph(site_flows):
 
     return graph
 
-
 # ── 4. A* search: find the fastest route by estimated total travel time ────────
 def find_best_route(origin, destination, site_flows):
     """
@@ -197,3 +196,134 @@ def find_best_route(origin, destination, site_flows):
         edges.append((u, v, flow, travel_min))
 
     return path, edges, g_score[destination]
+
+def find_best_route_with_blocked_edges(origin, destination, site_flows, blocked_edges):
+    if origin not in site_flows or destination not in site_flows:
+        return None, None, None
+
+    graph = build_directed_graph(site_flows)
+
+    # remove blocked edges
+    for u, v in blocked_edges:
+        if u in graph:
+            graph[u] = [
+                edge for edge in graph[u]
+                if edge[0] != v
+            ]
+
+    g_score = {origin: 0.0}
+    previous_node = {}
+    edge_used = {}
+    visited = set()
+
+    start_f = heuristic_time(origin, destination)
+    open_set = [(start_f, origin)]
+
+    while open_set:
+        _, u = heapq.heappop(open_set)
+
+        if u in visited:
+            continue
+        visited.add(u)
+
+        if u == destination:
+            break
+
+        for v, distance_km, flow in graph.get(u, []):
+            _, travel_min = compute_speed_and_time(distance_km, flow)
+            tentative_g = g_score[u] + travel_min
+
+            if v not in g_score or tentative_g < g_score[v]:
+                g_score[v] = tentative_g
+                previous_node[v] = u
+                edge_used[(u, v)] = (flow, travel_min)
+                f_score = tentative_g + heuristic_time(v, destination)
+                heapq.heappush(open_set, (f_score, v))
+
+    if destination not in g_score:
+        return None, None, None
+
+    path = [destination]
+    node = destination
+    while node != origin:
+        node = previous_node[node]
+        path.append(node)
+    path.reverse()
+
+    edges = []
+    for i in range(len(path) - 1):
+        u, v = path[i], path[i + 1]
+        flow, travel_min = edge_used[(u, v)]
+        edges.append((u, v, flow, travel_min))
+
+    return path, edges, g_score[destination]
+
+
+def find_top_3_routes(origin, destination, site_flows):
+    """
+    Find up to 3 fastest routes using repeated A* searches.
+
+    Returns:
+        [
+            (path, edges, total_time),
+            ...
+        ]
+    """
+
+    routes = []
+
+    # First route = best route
+    path1, edges1, time1 = find_best_route(origin, destination, site_flows)
+
+    if path1 is None:
+        return routes
+
+    routes.append((path1, edges1, time1))
+
+    removed_edges = []
+
+    # Generate Route 2 and Route 3
+    while len(routes) < 3:
+
+        best_candidate = None
+
+        previous_path = routes[-1][0]
+
+        # Try removing each edge of the previous route
+        for i in range(len(previous_path) - 1):
+
+            blocked_edge = (previous_path[i], previous_path[i + 1])
+
+            candidate = find_best_route_with_blocked_edges(
+                origin,
+                destination,
+                site_flows,
+                removed_edges + [blocked_edge]
+            )
+
+            if candidate[0] is None:
+                continue
+
+            path, edges, total_time = candidate
+
+            # Avoid duplicate paths
+            duplicate = False
+            for p, _, _ in routes:
+                if p == path:
+                    duplicate = True
+                    break
+
+            if duplicate:
+                continue
+
+            if best_candidate is None or total_time < best_candidate[2]:
+                best_candidate = candidate
+                best_blocked_edge = blocked_edge
+
+        if best_candidate is None:
+            break
+
+        routes.append(best_candidate)
+        removed_edges.append(best_blocked_edge)
+
+    return routes
