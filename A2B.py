@@ -19,7 +19,7 @@ type, this script:
      HTML file and opened in your browser).
 
 Usage:
-    python A2B_3routes.py <origin_site> <destination_site> <time_HHMM> <model>
+    python A2B.py <origin_site> <destination_site> <time_HHMM> <model>
 
 Example:
     python A2B.py 2000 2825 1100 RNN
@@ -38,26 +38,18 @@ continuing with route finding.  On subsequent runs the saved artefacts are
 reused and training is skipped.
 
 Sample output:
-    Best path: 2000 –(202)- 3682 –(156)- 3127 –(108)- 4057 –(83)- 4032 –(180)- 2825
-    Total Driving Time: 16.3 min
+    Best path: 2000 –(412)- 3682 –(389)- 3127 –(401)- 4057 –(355)- 4032 –(298)- 2825
+    Total Driving Time: 18.4 min
 
-    2nd path: 2000 –(202)- 3682 –(156)- 3127 –(192)- 3120 –(195)- 4032 –(180)- 2825
-    Total Driving Time: 17.5 min
-
-    3rd path: 2000 –(174)- 4043 –(200)- 3120 –(195)- 4032 –(180)- 2825
-    Total Driving Time: 17.8 min
-
-    Route 1 map saved and opened: route_2000_to_2825_11AM.html
-    Route 2 map saved and opened: route_2000_to_2825_11AM.html
-    Route 3 map saved and opened: route_2000_to_2825_11AM.html
+    Map saved and opened: route_2000_to_2825_11AM.html
 """
 
 import sys
 
 from config import COORDS, HOUR_LABELS
 from model_utils import load_artefacts, load_long_data, predict_site_flows
-from route_finder import find_top_3_routes
-from route_map import (build_route_map, save_and_open_map)
+from route_finder import find_best_route
+from route_map import build_route_map, save_and_open_map
 
 
 # ── Parse and validate command-line arguments ─────────────────────────────────
@@ -71,7 +63,11 @@ def parse_args():
     """
     if len(sys.argv) != 5:
         print(
-            "Usage: python A2B.py <origin> <destination> <time_HHMM> <model>"
+            "Usage: python A2B.py <origin_site> <destination_site> "
+            "<time_HHMM> <model>\n"
+            "Example: python A2B.py 2000 2825 1100 RNN\n\n"
+            "Supported models: RNN, LSTM, GRU\n"
+            "(Models are trained automatically on first use if not found.)"
         )
         sys.exit(1)
 
@@ -85,20 +81,24 @@ def parse_args():
             f"Supported models: {', '.join(supported_models)}"
         )
         sys.exit(1)
+
     # ── Site IDs ──────────────────────────────────────────────────────────────
     try:
         origin      = int(origin_str)
         destination = int(destination_str)
     except ValueError:
-        print(f"Error: origin and destination must be integer site IDs "
-              f"(got '{origin_str}', '{destination_str}').")
+        print(
+            f"Error: origin and destination must be integer site IDs "
+            f"(got '{origin_str}', '{destination_str}')."
+        )
         sys.exit(1)
 
     for site_id, label in [(origin, "Origin"), (destination, "Destination")]:
         if site_id not in COORDS:
             print(
                 f"Error: {label} site {site_id} is not a known site.\n"
-                f"Valid sites: {sorted(COORDS.keys())}")
+                f"Valid sites: {sorted(COORDS.keys())}"
+            )
             sys.exit(1)
 
     if origin == destination:
@@ -111,7 +111,7 @@ def parse_args():
     except ValueError:
         print(
             f"Error: time must be in HHMM format (e.g. 1100), got '{time_str}'."
-            )
+        )
         sys.exit(1)
 
     hour   = time_value // 100
@@ -125,28 +125,21 @@ def parse_args():
 
 
 # ── Format the final route output ─────────────────────────────────────────────
-def format_route_output(rank, path, edges, total_time):
+def format_route_output(path, edges, total_time):
     """
     Builds the two output lines:
         Best path: A –(flow)- B –(flow)- C ...
         Total Driving Time: X.X min
     """
-    rank_labels = {
-        1: "Best path", 
-        2: "2nd path", 
-        3: "3rd path"
-    }
-    label = rank_labels.get(rank, f"Route {rank}")
-
     parts = [str(path[0])]
     for _, to_site, flow, _ in edges:
-        parts.append(f"\u2013({flow})-")   # en-dash
+        parts.append(f"\u2013({flow})-")   # \u2013 = en-dash
         parts.append(str(to_site))
 
-    path_line = f"{label}: " + " ".join(parts)
-    time_line = f"Total Driving Time: {total_time:.1f} min"
+    best_path_line  = "Best path: " + " ".join(parts)
+    total_time_line = f"Total Driving Time: {total_time:.1f} min"
 
-    return path_line, time_line
+    return best_path_line, total_time_line
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -179,7 +172,7 @@ def main():
         sys.exit(1)
 
     # ── Step 2: Load the traffic dataset ──────────────────────────────────────
-    print("\n[Step 2/4] Loading traffic dataset ...")
+    print("\n[Step 2/4] Loading traffic dataset …")
     try:
         df_long = load_long_data()
     except FileNotFoundError as exc:
@@ -187,63 +180,35 @@ def main():
         sys.exit(1)
 
     # ── Step 3: Predict flows at every site for the requested hour ─────────────
-    print(f"\n[Step 3/4] Predicting flows for hour {hour} ({HOUR_LABELS[hour]}) ...")
+    print(f"\n[Step 3/4] Predicting flows for hour {hour} ({HOUR_LABELS[hour]}) …")
     site_flows = predict_site_flows(
         COORDS.keys(), hour, model, scaler, le, df_long
     )
 
-    # Step 4: Find top 3 routes with A*
-    print(f"\n[Step 4/4] Running A* search: {origin} → {destination} ...")
-    routes = find_top_3_routes(origin, destination, site_flows)
+    # ── Step 4: Find the fastest route with A* ────────────────────────────────
+    print(f"\n[Step 4/4] Running A* search: {origin} → {destination} …")
+    path, edges, total_time = find_best_route(origin, destination, site_flows)
 
-    print("\nDEBUG:")  
-    for rank, (path, edges, total_time) in enumerate(routes, start=1): 
-        print(f"Route {rank}:") 
-        print(path) 
-        print(edges) 
-        print()
-
-    if not routes:
-        print(f"\nNo route found between site {origin} and site {destination}.")
+    if path is None:
+        print(
+            f"\nNo route found between site {origin} and site {destination}.\n"
+            f"The sites may be disconnected in the road network."
+        )
         sys.exit(1)
 
     # ── Output ────────────────────────────────────────────────────────────────
+    best_path_line, total_time_line = format_route_output(path, edges, total_time)
+
     print()
-    for rank, (path, edges, total_time) in enumerate(routes, start=1):
-        path_line, time_line = format_route_output(rank, path, edges, total_time)
-        print(path_line)
-        print(time_line)
-        if rank < len(routes):
-            print()
+    print(best_path_line)
+    print(total_time_line)
 
-    # ── Generate ONE map with 3 routes ───────────────────────────────
-    print("\nGenerating map...")
-
-    path1, edges1, total_time1 = routes[0]
-
-    # Route 2 and Route 3 (if found) are overlaid on the same map.
-    extra_routes = routes[1:]
-
+    # ── Render and open map ───────────────────────────────────────────────────
     m, output_path = build_route_map(
-        origin,
-        destination,
-        path1,
-        edges1,
-        site_flows,
-        hour,
-        total_time1,
-        route_number=1,
-        extra_routes=extra_routes,
+        origin, destination, path, edges, site_flows, hour, total_time
     )
-
-    abs_path = save_and_open_map(
-        m,
-        output_path
-    )
-
-    print(
-        f"\nAll routes map saved and opened: {abs_path}"
-    )
+    abs_path = save_and_open_map(m, output_path)
+    print(f"\nMap saved and opened: {abs_path}")
 
 
 if __name__ == "__main__":
