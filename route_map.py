@@ -238,27 +238,44 @@ def build_route_map(origin, destination, all_routes, site_flows, hour):
             ).add_to(m)
 
         # ── Numbered stop markers ─────────────────────────────────────────────
-        for i, site_id in enumerate(r_path):
+        # Each stop is wrapped in an outer div "route-stop-marker {line_id}"
+        # whose display is toggled by __switchRoute().
+        # Route 1 starts visible; routes 2 & 3 start hidden (display:none).
+        stop_initial_display = "block" if route_idx == 0 else "none"
+
+        # Count only intermediate stops (not origin / destination) so the
+        # sequence is always 1, 2, 3 … regardless of path position.
+        total_stops = sum(
+            1 for s in r_path
+            if s in COORDS and s != origin and s != destination
+        )
+        stop_number = 0
+
+        for site_id in r_path:
             if site_id not in COORDS:
                 continue
             if site_id == origin or site_id == destination:
                 continue
 
+            stop_number += 1
             lat, lon = COORDS[site_id]
+
             number_html = (
+                f'<div class="route-stop-marker {line_id}" style="display:{stop_initial_display};">'
                 f'<div class="route-stop {line_id}" style="'
                 f'background-color:{color};color:white;font-weight:bold;'
                 f'font-family:Arial,sans-serif;font-size:11px;border-radius:50%;'
                 f'width:20px;height:20px;display:flex;align-items:center;'
                 f'justify-content:center;border:2px solid white;'
-                f'box-shadow:1px 1px 3px rgba(0,0,0,0.5);">{i + 1}</div>'
+                f'box-shadow:1px 1px 3px rgba(0,0,0,0.5);">{stop_number}</div>'
+                f'</div>'
             )
 
             site_name = SITE_NAMES.get(site_id, f"Site {site_id}")
             flow_here = site_flows.get(site_id, 0)
             popup_html = (
                 "<div style='font-family:Arial,sans-serif;font-size:12px;'>"
-                f"<b>Stop {i + 1} of {len(r_path)} ({style['label']})</b><br>"
+                f"<b>Stop {stop_number} of {total_stops} ({style['label']})</b><br>"
                 f"<b>Site {site_id}</b> - {site_name}<br>"
                 f"Predicted flow ({hour_label}): <b>{flow_here:,}</b> veh/hr"
                 "</div>"
@@ -268,7 +285,7 @@ def build_route_map(origin, destination, all_routes, site_flows, hour):
                 location=[lat, lon],
                 icon=folium.DivIcon(html=number_html, icon_size=(24, 24), icon_anchor=(28, 28)),
                 popup=folium.Popup(popup_html, max_width=260),
-                tooltip=f"Site {site_id} \u2014 {site_name} | Stop {i + 1} ({style['label']})",
+                tooltip=f"Site {site_id} \u2014 {site_name} | Stop {stop_number} of {total_stops} ({style['label']})",
             ).add_to(m)
 
     # ── Layer 3: origin / destination markers + all other site markers ───────────
@@ -415,7 +432,7 @@ def build_route_map(origin, destination, all_routes, site_flows, hour):
                 // Inactive routes stay visible but thinner (so all 3 paths
                 // are always shown on the map simultaneously).
                 document.querySelectorAll('.route-line.' + r.id).forEach(function(el) {{
-                    el.setAttribute('opacity',      isActive ? 1    : 0.65);
+                    el.setAttribute('opacity',      isActive ? 1    : 0.2);
                     el.setAttribute('stroke-width', isActive ? 9    : 5);
                 }});
 
@@ -425,9 +442,10 @@ def build_route_map(origin, destination, all_routes, site_flows, hour):
                     el.style.display = isActive ? 'block' : 'none';
                 }});
 
-                // Stop markers: slightly faded for inactive routes.
-                document.querySelectorAll('.route-stop.' + r.id).forEach(function(el) {{
-                    el.style.opacity = isActive ? 1 : 0.55;
+                // Stop number markers: show only for the active route,
+                // completely hide for all others (display:none / block).
+                document.querySelectorAll('.route-stop-marker.' + r.id).forEach(function(el) {{
+                    el.style.display = isActive ? 'block' : 'none';
                 }});
             }});
         }};
