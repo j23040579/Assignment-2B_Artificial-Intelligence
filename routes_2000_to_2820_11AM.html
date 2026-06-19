@@ -1,0 +1,2402 @@
+<!DOCTYPE html>
+<html>
+<head>
+    
+    <meta http-equiv="content-type" content="text/html; charset=UTF-8" />
+    <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.js"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.3/dist/leaflet.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.2.2/dist/css/bootstrap.min.css"/>
+    <link rel="stylesheet" href="https://netdna.bootstrapcdn.com/bootstrap/3.0.0/css/bootstrap-glyphicons.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.2.0/css/all.min.css"/>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/Leaflet.awesome-markers/2.0.2/leaflet.awesome-markers.css"/>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/python-visualization/folium/folium/templates/leaflet.awesome.rotate.min.css"/>
+    
+            <meta name="viewport" content="width=device-width,
+                initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+            <style>
+                #map_d13bf794e2bb909a2469deb5700fecfd {
+                    position: relative;
+                    width: 100.0%;
+                    height: 100.0%;
+                    left: 0.0%;
+                    top: 0.0%;
+                }
+                .leaflet-container { font-size: 1rem; }
+            </style>
+
+            <style>html, body {
+                width: 100%;
+                height: 100%;
+                margin: 0;
+                padding: 0;
+            }
+            </style>
+
+            <style>#map {
+                position:absolute;
+                top:0;
+                bottom:0;
+                right:0;
+                left:0;
+                }
+            </style>
+
+            <script>
+                L_NO_TOUCH = false;
+                L_DISABLE_3D = false;
+            </script>
+
+        
+</head>
+<body>
+    
+    
+    <div id="route-title-banner" style="position:fixed; top:10px; left:50%;
+                transform:translateX(-50%); z-index:1000; background:white;
+                padding:10px 18px; border-radius:8px; border:2px solid #555;
+                font-family:Arial,sans-serif; font-size:13px; font-weight:bold;
+                text-align:center; max-width:90%;">
+        <div id="route-switch-buttons" style="margin-bottom:6px;"><button class="route-switch-btn active" data-route-id="route1" style="background:#2980b9;" onclick="window.__switchRoute('route1')">Best Route</button><button class="route-switch-btn " data-route-id="route2" style="background:#00b81c;" onclick="window.__switchRoute('route2')">2nd Best Route</button><button class="route-switch-btn " data-route-id="route3" style="background:#ff009d;" onclick="window.__switchRoute('route3')">3rd Best Route</button></div>
+        <div id="route-title-text">Best Route (11AM): 2000 → 4043 → 4270 → 4263 → 3002 → 3662 → 2820</div>
+        <span id="route-time-text" style="font-size:12px;font-weight:normal;color:#555;">
+            Total Driving Time: 27.5 min | ETA: 11:27 AM
+        </span>
+    </div>
+
+    <style>
+        .route-switch-btn {
+            color: white;
+            border: none;
+            border-radius: 5px;
+            padding: 6px 14px;
+            margin: 0 4px;
+            font-family: Arial, sans-serif;
+            font-size: 12px;
+            font-weight: bold;
+            cursor: pointer;
+            opacity: 0.55;
+            transition: opacity 0.15s, box-shadow 0.15s;
+        }
+        .route-switch-btn.active {
+            opacity: 1;
+            box-shadow: 0 0 0 2px #333;
+        }
+        .route-switch-btn:hover {
+            opacity: 0.85;
+        }
+    </style>
+    
+    
+    <script>
+    (function() {
+        var routeData = [{"id": "route1", "label": "Best Route", "color": "#2980b9", "text": "Best Route (11AM): 2000 \u2192 4043 \u2192 4270 \u2192 4263 \u2192 3002 \u2192 3662 \u2192 2820", "time_text": "Total Driving Time: 27.5 min | ETA: 11:27 AM"}, {"id": "route2", "label": "2nd Best Route", "color": "#00b81c", "text": "2nd Best Route (11AM): 2000 \u2192 4043 \u2192 3120 \u2192 4032 \u2192 4321 \u2192 2820", "time_text": "Total Driving Time: 28.7 min | ETA: 11:28 AM"}, {"id": "route3", "label": "3rd Best Route", "color": "#ff009d", "text": "3rd Best Route (11AM): 2000 \u2192 4043 \u2192 3120 \u2192 4266 \u2192 3002 \u2192 3662 \u2192 2820", "time_text": "Total Driving Time: 29.9 min | ETA: 11:29 AM"}];
+
+        window.__switchRoute = function(routeId) {
+            // Update banner text.
+            var match = routeData.find(function(r) { return r.id === routeId; });
+            if (match) {
+                document.getElementById('route-title-text').innerHTML = match.text;
+                document.getElementById('route-time-text').innerHTML  = match.time_text;
+            }
+
+            // Toggle active class on buttons.
+            document.querySelectorAll('.route-switch-btn').forEach(function(btn) {
+                btn.classList.toggle('active', btn.getAttribute('data-route-id') === routeId);
+            });
+
+            routeData.forEach(function(r) {
+                var isActive = (r.id === routeId);
+
+                // Polylines: active route is thicker and fully opaque.
+                // Inactive routes stay visible but thinner (so all 3 paths
+                // are always shown on the map simultaneously).
+                document.querySelectorAll('.route-line.' + r.id).forEach(function(el) {
+                    el.setAttribute('opacity',      isActive ? 1    : 0.2);
+                    el.setAttribute('stroke-width', isActive ? 9    : 5);
+                });
+
+                // Edge labels: ONLY the active route shows its labels.
+                // All other routes' labels are completely hidden (display:none).
+                document.querySelectorAll('.route-label-marker.' + r.id).forEach(function(el) {
+                    el.style.display = isActive ? 'block' : 'none';
+                });
+
+                // Stop number markers: show only for the active route,
+                // completely hide for all others (display:none / block).
+                document.querySelectorAll('.route-stop-marker.' + r.id).forEach(function(el) {
+                    el.style.display = isActive ? 'block' : 'none';
+                });
+            });
+        };
+
+        // On load, activate the Best Route button/state once the SVG renders.
+        function initHighlight() {
+            if (document.querySelector('.route-line')) {
+                window.__switchRoute(routeData[0].id);
+            } else {
+                setTimeout(initHighlight, 150);
+            }
+        }
+        initHighlight();
+    })();
+    </script>
+    
+    
+    <div style="position:fixed; bottom:30px; left:30px; z-index:1000;
+                background:white; padding:12px; border-radius:8px;
+                border:2px solid grey; font-size:12px;">
+      <b>Route @ 11AM</b><br>
+      <span style="color:#2980b9;">━━</span> Best path (A*)<br>
+      <span style="color:#00b81c;">━━</span> 2nd Best path<br>
+      <span style="color:#ff009d;">━━</span> 3rd Best path<br>
+      <br>
+      <span style="color:#c0392b;">━━</span> High flow (other roads)<br>
+      <span style="color:#e67e22;">━━</span> Medium flow<br>
+      <span style="color:#999999;">━━</span> Low flow / unused<br>
+      <br>
+      🟢 Origin &nbsp; 🔴 Destination &nbsp; 🔵 Stop on route<br>
+      <br><i>Click buttons above to switch route · Hover lines for details</i>
+    </div>
+    
+            <div class="folium-map" id="map_d13bf794e2bb909a2469deb5700fecfd" ></div>
+        
+</body>
+<script>
+    
+    
+            var map_d13bf794e2bb909a2469deb5700fecfd = L.map(
+                "map_d13bf794e2bb909a2469deb5700fecfd",
+                {
+                    center: [-37.813830055555556, 145.05827549999998],
+                    crs: L.CRS.EPSG3857,
+                    ...{
+  "zoom": 13,
+  "zoomControl": true,
+  "preferCanvas": false,
+}
+
+                }
+            );
+
+            
+
+        
+    
+            var tile_layer_09227300bd983c5620ed20525951ceed = L.tileLayer(
+                "https://tile.openstreetmap.org/{z}/{x}/{y}.png",
+                {
+  "minZoom": 0,
+  "maxZoom": 19,
+  "maxNativeZoom": 19,
+  "noWrap": false,
+  "attribution": "\u0026copy; \u003ca href=\"https://www.openstreetmap.org/copyright\"\u003eOpenStreetMap\u003c/a\u003e contributors",
+  "subdomains": "abc",
+  "detectRetina": false,
+  "tms": false,
+  "opacity": 1,
+}
+
+            );
+        
+    
+            tile_layer_09227300bd983c5620ed20525951ceed.addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var poly_line_7877626fa5c6a6bf7d9320f4b92dd791 = L.polyline(
+                [[-37.781739, 145.077331], [-37.794143, 145.069333]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_7877626fa5c6a6bf7d9320f4b92dd791.bindTooltip(
+                `<div>
+                     Site 2827 ↔ Site 4051 | 1.85 km | Flow (11AM): 1,563 veh/hr | Speed: 32.0 km/h | Travel time: 4.0 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_187e4910290eaaff50adf993c937791c = L.polyline(
+                [[-37.794143, 145.069333], [-37.796213, 145.083507]],
+                {"bubblingMouseEvents": true, "color": "#999999", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#999999", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_187e4910290eaaff50adf993c937791c.bindTooltip(
+                `<div>
+                     Site 4051 ↔ Site 3180 | 1.57 km | Flow (11AM): 981 veh/hr | Speed: 53.1 km/h | Travel time: 2.3 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_f193e59aa78db97a7e62c26ef57d6f94 = L.polyline(
+                [[-37.796213, 145.083507], [-37.804969, 145.08176]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_f193e59aa78db97a7e62c26ef57d6f94.bindTooltip(
+                `<div>
+                     Site 3180 ↔ Site 4057 | 1.07 km | Flow (11AM): 1,339 veh/hr | Speed: 48.3 km/h | Travel time: 1.8 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_9d63961e981f170dc397a600004f4002 = L.polyline(
+                [[-37.804969, 145.08176], [-37.802297, 145.06123]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_9d63961e981f170dc397a600004f4002.bindTooltip(
+                `<div>
+                     Site 4057 ↔ Site 4032 | 2.47 km | Flow (11AM): 1,960 veh/hr | Speed: 32.0 km/h | Travel time: 5.1 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_16db1236d3ad5b8d003cee7425e9af85 = L.polyline(
+                [[-37.804969, 145.08176], [-37.825227, 145.077947]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_16db1236d3ad5b8d003cee7425e9af85.bindTooltip(
+                `<div>
+                     Site 4057 ↔ Site 3127 | 2.53 km | Flow (11AM): 1,837 veh/hr | Speed: 32.0 km/h | Travel time: 5.2 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_6f17a12db6120f860c78dc64490665fb = L.polyline(
+                [[-37.825227, 145.077947], [-37.837475, 145.096868]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_6f17a12db6120f860c78dc64490665fb.bindTooltip(
+                `<div>
+                     Site 3127 ↔ Site 3682 | 3.57 km | Flow (11AM): 2,131 veh/hr | Speed: 32.0 km/h | Travel time: 7.2 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_66161669e066ea965161f831388afc4c = L.polyline(
+                [[-37.822895, 145.057288], [-37.825227, 145.077947]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_66161669e066ea965161f831388afc4c.bindTooltip(
+                `<div>
+                     Site 3120 ↔ Site 3127 | 2.62 km | Flow (11AM): 2,364 veh/hr | Speed: 32.0 km/h | Travel time: 5.4 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_aa79d3244b789b8791824298b00046ac = L.polyline(
+                [[-37.851923, 145.094324], [-37.837475, 145.096868]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_aa79d3244b789b8791824298b00046ac.bindTooltip(
+                `<div>
+                     Site 2000 ↔ Site 3682 | 1.75 km | Flow (11AM): 2,782 veh/hr | Speed: 32.0 km/h | Travel time: 3.8 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_304d1f830e61f41a561197ee6634869e = L.polyline(
+                [[-37.851923, 145.094324], [-37.84716, 145.052627]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_304d1f830e61f41a561197ee6634869e.bindTooltip(
+                `<div>
+                     Site 2000 ↔ Site 4043 | 4.21 km | Flow (11AM): 3,150 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_69202729100db50e89b6dee0660751d7 = L.polyline(
+                [[-37.84716, 145.052627], [-37.822895, 145.057288]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_69202729100db50e89b6dee0660751d7.bindTooltip(
+                `<div>
+                     Site 4043 ↔ Site 3120 | 2.86 km | Flow (11AM): 2,755 veh/hr | Speed: 32.0 km/h | Travel time: 5.9 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_0e601f450b733ef535841f7391fd0611 = L.polyline(
+                [[-37.822895, 145.057288], [-37.802297, 145.06123]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_0e601f450b733ef535841f7391fd0611.bindTooltip(
+                `<div>
+                     Site 3120 ↔ Site 4032 | 2.45 km | Flow (11AM): 2,487 veh/hr | Speed: 32.0 km/h | Travel time: 5.1 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_fa8fc7cd59535f902bca27c5a4339899 = L.polyline(
+                [[-37.822895, 145.057288], [-37.825268, 145.043338]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_fa8fc7cd59535f902bca27c5a4339899.bindTooltip(
+                `<div>
+                     Site 3120 ↔ Site 4266 | 1.87 km | Flow (11AM): 2,541 veh/hr | Speed: 32.0 km/h | Travel time: 4.0 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_ffd19f00f4d5d9a98e8cfeaf304878b1 = L.polyline(
+                [[-37.84716, 145.052627], [-37.830228, 145.032815]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_ffd19f00f4d5d9a98e8cfeaf304878b1.bindTooltip(
+                `<div>
+                     Site 4043 ↔ Site 4270 | 3.55 km | Flow (11AM): 2,492 veh/hr | Speed: 32.0 km/h | Travel time: 7.2 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_1a892ae85750700c0494c219e2f00100 = L.polyline(
+                [[-37.825268, 145.043338], [-37.830228, 145.032815]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_1a892ae85750700c0494c219e2f00100.bindTooltip(
+                `<div>
+                     Site 4266 ↔ Site 4270 | 1.67 km | Flow (11AM): 2,278 veh/hr | Speed: 32.0 km/h | Travel time: 3.6 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_a63e4891e9f7af532171984b39502e37 = L.polyline(
+                [[-37.830228, 145.032815], [-37.823056, 145.024958]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_a63e4891e9f7af532171984b39502e37.bindTooltip(
+                `<div>
+                     Site 4270 ↔ Site 4263 | 1.49 km | Flow (11AM): 2,254 veh/hr | Speed: 32.0 km/h | Travel time: 3.3 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_0ed5d5e7d2c9c449d2e928c56f925fc5 = L.polyline(
+                [[-37.825268, 145.043338], [-37.823056, 145.024958]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_0ed5d5e7d2c9c449d2e928c56f925fc5.bindTooltip(
+                `<div>
+                     Site 4266 ↔ Site 4263 | 2.14 km | Flow (11AM): 2,438 veh/hr | Speed: 32.0 km/h | Travel time: 4.5 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_b5a11b10ce00e72e06b63f56a6730d19 = L.polyline(
+                [[-37.825268, 145.043338], [-37.815162, 145.026572]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_b5a11b10ce00e72e06b63f56a6730d19.bindTooltip(
+                `<div>
+                     Site 4266 ↔ Site 3002 | 2.72 km | Flow (11AM): 2,520 veh/hr | Speed: 32.0 km/h | Travel time: 5.6 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_7d35a56f3a56e072f4bca9044097925f = L.polyline(
+                [[-37.823056, 145.024958], [-37.815162, 145.026572]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_7d35a56f3a56e072f4bca9044097925f.bindTooltip(
+                `<div>
+                     Site 4263 ↔ Site 3002 | 1.15 km | Flow (11AM): 2,495 veh/hr | Speed: 32.0 km/h | Travel time: 2.7 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_87e4e8a71cfb19aee123d1f960a6bfd1 = L.polyline(
+                [[-37.815162, 145.026572], [-37.808953, 145.027457]],
+                {"bubblingMouseEvents": true, "color": "#c0392b", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#c0392b", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_87e4e8a71cfb19aee123d1f960a6bfd1.bindTooltip(
+                `<div>
+                     Site 3002 ↔ Site 3662 | 0.99 km | Flow (11AM): 2,409 veh/hr | Speed: 32.0 km/h | Travel time: 2.4 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_960f1d5672b267e0485a1bb56efdd20a = L.polyline(
+                [[-37.808953, 145.027457], [-37.800838, 145.049119]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_960f1d5672b267e0485a1bb56efdd20a.bindTooltip(
+                `<div>
+                     Site 3662 ↔ Site 4321 | 2.38 km | Flow (11AM): 1,817 veh/hr | Speed: 32.0 km/h | Travel time: 5.0 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_2fd2bd10db9b5862154f8ff94d23711c = L.polyline(
+                [[-37.808953, 145.027457], [-37.794785, 145.030465]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_2fd2bd10db9b5862154f8ff94d23711c.bindTooltip(
+                `<div>
+                     Site 3662 ↔ Site 2820 | 1.69 km | Flow (11AM): 1,732 veh/hr | Speed: 32.0 km/h | Travel time: 3.7 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_7ed933494f65ef8d98bd83c28e8ee6be = L.polyline(
+                [[-37.794785, 145.030465], [-37.800838, 145.049119]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_7ed933494f65ef8d98bd83c28e8ee6be.bindTooltip(
+                `<div>
+                     Site 2820 ↔ Site 4321 | 3.54 km | Flow (11AM): 1,308 veh/hr | Speed: 45.8 km/h | Travel time: 5.1 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_81dc61f272381d968549288b45ccca6e = L.polyline(
+                [[-37.800838, 145.049119], [-37.802297, 145.06123]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_81dc61f272381d968549288b45ccca6e.bindTooltip(
+                `<div>
+                     Site 4321 ↔ Site 4032 | 1.64 km | Flow (11AM): 1,874 veh/hr | Speed: 40.5 km/h | Travel time: 2.9 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_ac09642a88ae9397bdd642cfa10a99b5 = L.polyline(
+                [[-37.802297, 145.06123], [-37.78661, 145.06202]],
+                {"bubblingMouseEvents": true, "color": "#e67e22", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#e67e22", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.5, "smoothFactor": 1.0, "stroke": true, "weight": 3}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_ac09642a88ae9397bdd642cfa10a99b5.bindTooltip(
+                `<div>
+                     Site 4032 ↔ Site 2825 | 1.96 km | Flow (11AM): 1,529 veh/hr | Speed: 32.0 km/h | Travel time: 4.2 min
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var poly_line_de03aac26666038ee11c75db29247f58 = L.polyline(
+                [[-37.851923, 145.094324], [-37.84716, 145.052627]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_de03aac26666038ee11c75db29247f58.bindTooltip(
+                `<div>
+                     Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_bcc0ab024fe0f20d823c5e281e1ba663 = L.marker(
+                [-37.8495415, 145.0734755],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_36f3c24f64086fd194d1d9f30fa532c8 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 3,410\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 8.4 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_bcc0ab024fe0f20d823c5e281e1ba663.bindTooltip(
+                `<div>
+                     Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_bcc0ab024fe0f20d823c5e281e1ba663.setIcon(div_icon_36f3c24f64086fd194d1d9f30fa532c8);
+            
+    
+            var poly_line_943d46599863c1dcd2350528e0338178 = L.polyline(
+                [[-37.84716, 145.052627], [-37.830228, 145.032815]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_943d46599863c1dcd2350528e0338178.bindTooltip(
+                `<div>
+                     Best Route: Site 4043 ↔ Site 4270 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 7.2 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_1e5e27cb2e9e825e8684651c3c1018c4 = L.marker(
+                [-37.838694000000004, 145.042721],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_4bf81bb73f5df854ded542eccda7f56b = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,891\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 7.2 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_1e5e27cb2e9e825e8684651c3c1018c4.bindTooltip(
+                `<div>
+                     Best Route: Site 4043 ↔ Site 4270 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 7.2 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1e5e27cb2e9e825e8684651c3c1018c4.setIcon(div_icon_4bf81bb73f5df854ded542eccda7f56b);
+            
+    
+            var poly_line_9064e1010d279341338956528d378e4b = L.polyline(
+                [[-37.830228, 145.032815], [-37.823056, 145.024958]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_9064e1010d279341338956528d378e4b.bindTooltip(
+                `<div>
+                     Best Route: Site 4270 ↔ Site 4263 | Flow (11AM): 2,094 veh/hr | Speed: 32.0 km/h | Travel time: 3.3 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_9192819457276fe39cae859827860b1b = L.marker(
+                [-37.826642, 145.0288865],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_f286a05cddb09fb28f4fc43e063acc35 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,094\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 3.3 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_9192819457276fe39cae859827860b1b.bindTooltip(
+                `<div>
+                     Best Route: Site 4270 ↔ Site 4263 | Flow (11AM): 2,094 veh/hr | Speed: 32.0 km/h | Travel time: 3.3 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_9192819457276fe39cae859827860b1b.setIcon(div_icon_f286a05cddb09fb28f4fc43e063acc35);
+            
+    
+            var poly_line_38b22c4413b1c881898b883af60a357f = L.polyline(
+                [[-37.823056, 145.024958], [-37.815162, 145.026572]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_38b22c4413b1c881898b883af60a357f.bindTooltip(
+                `<div>
+                     Best Route: Site 4263 ↔ Site 3002 | Flow (11AM): 2,414 veh/hr | Speed: 32.0 km/h | Travel time: 2.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_ec534e333f28805210d73460cca27d31 = L.marker(
+                [-37.819109, 145.02576499999998],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_22e4ad8a314af1aa3bf1a06f896dbba2 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,414\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 2.7 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_ec534e333f28805210d73460cca27d31.bindTooltip(
+                `<div>
+                     Best Route: Site 4263 ↔ Site 3002 | Flow (11AM): 2,414 veh/hr | Speed: 32.0 km/h | Travel time: 2.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_ec534e333f28805210d73460cca27d31.setIcon(div_icon_22e4ad8a314af1aa3bf1a06f896dbba2);
+            
+    
+            var poly_line_06a6a968f648ae2318cc3cc23a842a7f = L.polyline(
+                [[-37.815162, 145.026572], [-37.808953, 145.027457]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_06a6a968f648ae2318cc3cc23a842a7f.bindTooltip(
+                `<div>
+                     Best Route: Site 3002 ↔ Site 3662 | Flow (11AM): 2,577 veh/hr | Speed: 32.0 km/h | Travel time: 2.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_ca2c1bee265268e61b2736a7e7ae23d0 = L.marker(
+                [-37.8120575, 145.0270145],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_d3da9922190786e113b1bb1a06d7d3fc = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,577\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 2.4 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_ca2c1bee265268e61b2736a7e7ae23d0.bindTooltip(
+                `<div>
+                     Best Route: Site 3002 ↔ Site 3662 | Flow (11AM): 2,577 veh/hr | Speed: 32.0 km/h | Travel time: 2.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_ca2c1bee265268e61b2736a7e7ae23d0.setIcon(div_icon_d3da9922190786e113b1bb1a06d7d3fc);
+            
+    
+            var poly_line_00fa0190a6ea95bd034490233e7269bc = L.polyline(
+                [[-37.808953, 145.027457], [-37.794785, 145.030465]],
+                {"bubblingMouseEvents": true, "className": "route-line route1", "color": "#2980b9", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#2980b9", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_00fa0190a6ea95bd034490233e7269bc.bindTooltip(
+                `<div>
+                     Best Route: Site 3662 ↔ Site 2820 | Flow (11AM): 2,241 veh/hr | Speed: 32.0 km/h | Travel time: 3.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_9e98abc4402cdd4933aa29a5c877e733 = L.marker(
+                [-37.801868999999996, 145.02896099999998],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_75ee6f6f8dd8232cbb50d0f56c220d00 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route1\" style=\"display:block;\"\u003e\u003cdiv style=\"background-color:#2980b9;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,241\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 3.7 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_9e98abc4402cdd4933aa29a5c877e733.bindTooltip(
+                `<div>
+                     Best Route: Site 3662 ↔ Site 2820 | Flow (11AM): 2,241 veh/hr | Speed: 32.0 km/h | Travel time: 3.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_9e98abc4402cdd4933aa29a5c877e733.setIcon(div_icon_75ee6f6f8dd8232cbb50d0f56c220d00);
+            
+    
+            var marker_b8cbbcfb288833b4fcbbe05b0e0e2ab3 = L.marker(
+                [-37.84716, 145.052627],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_bb95aeaad3c1ddbefa99851b87841511 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route1\" style=\"display:block;\"\u003e\u003cdiv class=\"route-stop route1\" style=\"background-color:#2980b9;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e1\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_71a66f662cae9b5291d4b9340d115f64 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_126715aaa8c2d70456c4a53c74b13826 = $(`<div id="html_126715aaa8c2d70456c4a53c74b13826" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 1 of 5 (Best Route)</b><br><b>Site 4043</b> - CANTERBURY_RD / MONT_ALBERT_RD<br>Predicted flow (11AM): <b>2,891</b> veh/hr</div></div>`)[0];
+                popup_71a66f662cae9b5291d4b9340d115f64.setContent(html_126715aaa8c2d70456c4a53c74b13826);
+            
+        
+
+        marker_b8cbbcfb288833b4fcbbe05b0e0e2ab3.bindPopup(popup_71a66f662cae9b5291d4b9340d115f64)
+        ;
+
+        
+    
+    
+            marker_b8cbbcfb288833b4fcbbe05b0e0e2ab3.bindTooltip(
+                `<div>
+                     Site 4043 — CANTERBURY_RD / MONT_ALBERT_RD | Stop 1 of 5 (Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_b8cbbcfb288833b4fcbbe05b0e0e2ab3.setIcon(div_icon_bb95aeaad3c1ddbefa99851b87841511);
+            
+    
+            var marker_1ff986674686aee4f91acf6be6e121cd = L.marker(
+                [-37.830228, 145.032815],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_fa499b6e6b845874eed197d8b3bdd754 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route1\" style=\"display:block;\"\u003e\u003cdiv class=\"route-stop route1\" style=\"background-color:#2980b9;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e2\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_6c08c9fd431499093c2f181296b5d577 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_4bf2ee573449bcfbdd7b3d76e34f456c = $(`<div id="html_4bf2ee573449bcfbdd7b3d76e34f456c" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 2 of 5 (Best Route)</b><br><b>Site 4270</b> - BURWOOD_RD / HIGHFIELD_RD<br>Predicted flow (11AM): <b>2,094</b> veh/hr</div></div>`)[0];
+                popup_6c08c9fd431499093c2f181296b5d577.setContent(html_4bf2ee573449bcfbdd7b3d76e34f456c);
+            
+        
+
+        marker_1ff986674686aee4f91acf6be6e121cd.bindPopup(popup_6c08c9fd431499093c2f181296b5d577)
+        ;
+
+        
+    
+    
+            marker_1ff986674686aee4f91acf6be6e121cd.bindTooltip(
+                `<div>
+                     Site 4270 — BURWOOD_RD / HIGHFIELD_RD | Stop 2 of 5 (Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1ff986674686aee4f91acf6be6e121cd.setIcon(div_icon_fa499b6e6b845874eed197d8b3bdd754);
+            
+    
+            var marker_92ba3f70c6858d29a467d5a3aeabe7b1 = L.marker(
+                [-37.823056, 145.024958],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_9b6bd6b6fb2af546a21e2de754723f9d = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route1\" style=\"display:block;\"\u003e\u003cdiv class=\"route-stop route1\" style=\"background-color:#2980b9;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e3\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_7d216586e5d7b8bcc0b38c26f9f3cf64 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_2763bcc4036c0ca497887e90ff06d318 = $(`<div id="html_2763bcc4036c0ca497887e90ff06d318" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 3 of 5 (Best Route)</b><br><b>Site 4263</b> - DONCASTER_RD / ELGAR_RD<br>Predicted flow (11AM): <b>2,414</b> veh/hr</div></div>`)[0];
+                popup_7d216586e5d7b8bcc0b38c26f9f3cf64.setContent(html_2763bcc4036c0ca497887e90ff06d318);
+            
+        
+
+        marker_92ba3f70c6858d29a467d5a3aeabe7b1.bindPopup(popup_7d216586e5d7b8bcc0b38c26f9f3cf64)
+        ;
+
+        
+    
+    
+            marker_92ba3f70c6858d29a467d5a3aeabe7b1.bindTooltip(
+                `<div>
+                     Site 4263 — DONCASTER_RD / ELGAR_RD | Stop 3 of 5 (Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_92ba3f70c6858d29a467d5a3aeabe7b1.setIcon(div_icon_9b6bd6b6fb2af546a21e2de754723f9d);
+            
+    
+            var marker_62fa7f39edc857d0bb78e20633655b2c = L.marker(
+                [-37.815162, 145.026572],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_664aca459d7d0a6df084e5995365fce1 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route1\" style=\"display:block;\"\u003e\u003cdiv class=\"route-stop route1\" style=\"background-color:#2980b9;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e4\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_f7624d6954beb4459b3013a31094da4f = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_26a4b505178cb8d95193e6f6e44f6e2b = $(`<div id="html_26a4b505178cb8d95193e6f6e44f6e2b" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 4 of 5 (Best Route)</b><br><b>Site 3002</b> - DENMARK_ST / BARKERS_RD<br>Predicted flow (11AM): <b>2,577</b> veh/hr</div></div>`)[0];
+                popup_f7624d6954beb4459b3013a31094da4f.setContent(html_26a4b505178cb8d95193e6f6e44f6e2b);
+            
+        
+
+        marker_62fa7f39edc857d0bb78e20633655b2c.bindPopup(popup_f7624d6954beb4459b3013a31094da4f)
+        ;
+
+        
+    
+    
+            marker_62fa7f39edc857d0bb78e20633655b2c.bindTooltip(
+                `<div>
+                     Site 3002 — DENMARK_ST / BARKERS_RD | Stop 4 of 5 (Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_62fa7f39edc857d0bb78e20633655b2c.setIcon(div_icon_664aca459d7d0a6df084e5995365fce1);
+            
+    
+            var marker_ee0f484e236ab25ff960df88fe0691ca = L.marker(
+                [-37.808953, 145.027457],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_276ff8cfa28c3e9142a74657c9a322a0 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route1\" style=\"display:block;\"\u003e\u003cdiv class=\"route-stop route1\" style=\"background-color:#2980b9;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e5\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_fbc09d4748cb48079587d8e427a77e7e = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_98cfc2775cddb42f091c0b9fc4f0a70d = $(`<div id="html_98cfc2775cddb42f091c0b9fc4f0a70d" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 5 of 5 (Best Route)</b><br><b>Site 3662</b> - HIGH_ST / BURKE_RD<br>Predicted flow (11AM): <b>2,241</b> veh/hr</div></div>`)[0];
+                popup_fbc09d4748cb48079587d8e427a77e7e.setContent(html_98cfc2775cddb42f091c0b9fc4f0a70d);
+            
+        
+
+        marker_ee0f484e236ab25ff960df88fe0691ca.bindPopup(popup_fbc09d4748cb48079587d8e427a77e7e)
+        ;
+
+        
+    
+    
+            marker_ee0f484e236ab25ff960df88fe0691ca.bindTooltip(
+                `<div>
+                     Site 3662 — HIGH_ST / BURKE_RD | Stop 5 of 5 (Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_ee0f484e236ab25ff960df88fe0691ca.setIcon(div_icon_276ff8cfa28c3e9142a74657c9a322a0);
+            
+    
+            var poly_line_e32edb73b75d3808550ca415d620c61c = L.polyline(
+                [[-37.85210183702821, 145.09430357165346], [-37.84733883702821, 145.05260657165346]],
+                {"bubblingMouseEvents": true, "className": "route-line route2", "color": "#00b81c", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00b81c", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_e32edb73b75d3808550ca415d620c61c.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_34f22eb84594dee3df5d5d16f52b6fc7 = L.marker(
+                [-37.84972033702821, 145.07345507165346],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_462eb2f894ac72d3a74d080606e1eda7 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route2\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#00b81c;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 3,410\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 8.4 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_34f22eb84594dee3df5d5d16f52b6fc7.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_34f22eb84594dee3df5d5d16f52b6fc7.setIcon(div_icon_462eb2f894ac72d3a74d080606e1eda7);
+            
+    
+            var poly_line_86fefddab40de266cd790506e63c56ab = L.polyline(
+                [[-37.84712604502722, 145.05245023162098], [-37.82286104502722, 145.05711123162098]],
+                {"bubblingMouseEvents": true, "className": "route-line route2", "color": "#00b81c", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00b81c", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_86fefddab40de266cd790506e63c56ab.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4043 ↔ Site 3120 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 5.9 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_98dc92b04c0620d896ab90f6fc5f107c = L.marker(
+                [-37.83499354502722, 145.05478073162098],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_df16fb218663a757a68e13cb11b16f50 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route2\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#00b81c;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,891\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 5.9 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_98dc92b04c0620d896ab90f6fc5f107c.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4043 ↔ Site 3120 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 5.9 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_98dc92b04c0620d896ab90f6fc5f107c.setIcon(div_icon_df16fb218663a757a68e13cb11b16f50);
+            
+    
+            var poly_line_a4c69110c3f3a5e10ef9045ad37ca0d1 = L.polyline(
+                [[-37.82286116601637, 145.0571112084234], [-37.80226316601637, 145.0610532084234]],
+                {"bubblingMouseEvents": true, "className": "route-line route2", "color": "#00b81c", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00b81c", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_a4c69110c3f3a5e10ef9045ad37ca0d1.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 3120 ↔ Site 4032 | Flow (11AM): 2,620 veh/hr | Speed: 32.0 km/h | Travel time: 5.1 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_da9628cdbf1eab8f63649f65fcd22b2d = L.marker(
+                [-37.81256216601636, 145.0590822084234],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_c9b95b5505ccabecae0d4ecf94ef8cf1 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route2\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#00b81c;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,620\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 5.1 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_da9628cdbf1eab8f63649f65fcd22b2d.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 3120 ↔ Site 4032 | Flow (11AM): 2,620 veh/hr | Speed: 32.0 km/h | Travel time: 5.1 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_da9628cdbf1eab8f63649f65fcd22b2d.setIcon(div_icon_c9b95b5505ccabecae0d4ecf94ef8cf1);
+            
+    
+            var poly_line_8237df28d9770abbbad7546e984fd0bf = L.polyline(
+                [[-37.80247570789703, 145.0612084712392], [-37.80101670789703, 145.0490974712392]],
+                {"bubblingMouseEvents": true, "className": "route-line route2", "color": "#00b81c", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00b81c", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_8237df28d9770abbbad7546e984fd0bf.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4032 ↔ Site 4321 | Flow (11AM): 2,354 veh/hr | Speed: 32.0 km/h | Travel time: 3.6 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_5dca4b141c08245e1daa0d828c157638 = L.marker(
+                [-37.801746207897025, 145.0551529712392],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_fdb3d0ec35455d9239b5eeb4356f634f = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route2\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#00b81c;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,354\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 3.6 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_5dca4b141c08245e1daa0d828c157638.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4032 ↔ Site 4321 | Flow (11AM): 2,354 veh/hr | Speed: 32.0 km/h | Travel time: 3.6 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_5dca4b141c08245e1daa0d828c157638.setIcon(div_icon_fdb3d0ec35455d9239b5eeb4356f634f);
+            
+    
+            var poly_line_88e69382c5192f8beca5a88f947ea462 = L.polyline(
+                [[-37.801009211879645, 145.0490634437918], [-37.794956211879644, 145.0304094437918]],
+                {"bubblingMouseEvents": true, "className": "route-line route2", "color": "#00b81c", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#00b81c", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_88e69382c5192f8beca5a88f947ea462.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4321 ↔ Site 2820 | Flow (11AM): 1,394 veh/hr | Speed: 40.5 km/h | Travel time: 5.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_b1fc60e404d4ce7d361def6479aa0587 = L.marker(
+                [-37.79798271187964, 145.0397364437918],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_f00923bb55d6d578415563cd9362ae68 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route2\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#00b81c;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 1,394\u003cbr\u003eSpeed: 40.5 km/h\u003cbr\u003eTravel: 5.7 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_b1fc60e404d4ce7d361def6479aa0587.bindTooltip(
+                `<div>
+                     2nd Best Route: Site 4321 ↔ Site 2820 | Flow (11AM): 1,394 veh/hr | Speed: 40.5 km/h | Travel time: 5.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_b1fc60e404d4ce7d361def6479aa0587.setIcon(div_icon_f00923bb55d6d578415563cd9362ae68);
+            
+    
+            var marker_2fa38f1965434cf8de7f551b3ba92d7f = L.marker(
+                [-37.84716, 145.052627],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_25a7aa10cd7c56863994c040b110a0a5 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route2\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route2\" style=\"background-color:#00b81c;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e1\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_95925636e3439fb59888a571402c13f3 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_b2aa4a5f1379919aad6315b380145b5a = $(`<div id="html_b2aa4a5f1379919aad6315b380145b5a" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 1 of 4 (2nd Best Route)</b><br><b>Site 4043</b> - CANTERBURY_RD / MONT_ALBERT_RD<br>Predicted flow (11AM): <b>2,891</b> veh/hr</div></div>`)[0];
+                popup_95925636e3439fb59888a571402c13f3.setContent(html_b2aa4a5f1379919aad6315b380145b5a);
+            
+        
+
+        marker_2fa38f1965434cf8de7f551b3ba92d7f.bindPopup(popup_95925636e3439fb59888a571402c13f3)
+        ;
+
+        
+    
+    
+            marker_2fa38f1965434cf8de7f551b3ba92d7f.bindTooltip(
+                `<div>
+                     Site 4043 — CANTERBURY_RD / MONT_ALBERT_RD | Stop 1 of 4 (2nd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_2fa38f1965434cf8de7f551b3ba92d7f.setIcon(div_icon_25a7aa10cd7c56863994c040b110a0a5);
+            
+    
+            var marker_b2aeaf6b1adcec449c4e593ce8f0e6b4 = L.marker(
+                [-37.822895, 145.057288],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_bb36f0b6c21dfb416110540885929bd5 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route2\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route2\" style=\"background-color:#00b81c;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e2\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_2ddf32ac6533b92c2cf4df781eb4aff8 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_8bd811344ebdbd8f842f2f618a37ce5c = $(`<div id="html_8bd811344ebdbd8f842f2f618a37ce5c" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 2 of 4 (2nd Best Route)</b><br><b>Site 3120</b> - BURKE_RD / COTHAM_RD<br>Predicted flow (11AM): <b>2,620</b> veh/hr</div></div>`)[0];
+                popup_2ddf32ac6533b92c2cf4df781eb4aff8.setContent(html_8bd811344ebdbd8f842f2f618a37ce5c);
+            
+        
+
+        marker_b2aeaf6b1adcec449c4e593ce8f0e6b4.bindPopup(popup_2ddf32ac6533b92c2cf4df781eb4aff8)
+        ;
+
+        
+    
+    
+            marker_b2aeaf6b1adcec449c4e593ce8f0e6b4.bindTooltip(
+                `<div>
+                     Site 3120 — BURKE_RD / COTHAM_RD | Stop 2 of 4 (2nd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_b2aeaf6b1adcec449c4e593ce8f0e6b4.setIcon(div_icon_bb36f0b6c21dfb416110540885929bd5);
+            
+    
+            var marker_c0aadeed53b8bc59f45a3aad505364e8 = L.marker(
+                [-37.802297, 145.06123],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_0311e73021fbb584576e54271c81c361 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route2\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route2\" style=\"background-color:#00b81c;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e3\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_0e010d5fc5c36d6509b148ad9dfdef22 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_5ab69cc6f574cf5e89a8b407edadddbd = $(`<div id="html_5ab69cc6f574cf5e89a8b407edadddbd" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 3 of 4 (2nd Best Route)</b><br><b>Site 4032</b> - WHITEHORSE_RD / RATHMINES_RD<br>Predicted flow (11AM): <b>2,354</b> veh/hr</div></div>`)[0];
+                popup_0e010d5fc5c36d6509b148ad9dfdef22.setContent(html_5ab69cc6f574cf5e89a8b407edadddbd);
+            
+        
+
+        marker_c0aadeed53b8bc59f45a3aad505364e8.bindPopup(popup_0e010d5fc5c36d6509b148ad9dfdef22)
+        ;
+
+        
+    
+    
+            marker_c0aadeed53b8bc59f45a3aad505364e8.bindTooltip(
+                `<div>
+                     Site 4032 — WHITEHORSE_RD / RATHMINES_RD | Stop 3 of 4 (2nd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_c0aadeed53b8bc59f45a3aad505364e8.setIcon(div_icon_0311e73021fbb584576e54271c81c361);
+            
+    
+            var marker_68b4c9e1ed9fa04826301f727f386daa = L.marker(
+                [-37.800838, 145.049119],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_f24025c694497ecd33c8407315789d1e = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route2\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route2\" style=\"background-color:#00b81c;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e4\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_fb6ee612fe1c0f69ed7147671707f10f = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_4f0f99e5b43f92d03ab3b18d5e523989 = $(`<div id="html_4f0f99e5b43f92d03ab3b18d5e523989" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 4 of 4 (2nd Best Route)</b><br><b>Site 4321</b> - TOORAK_RD / AUBURN_RD<br>Predicted flow (11AM): <b>1,394</b> veh/hr</div></div>`)[0];
+                popup_fb6ee612fe1c0f69ed7147671707f10f.setContent(html_4f0f99e5b43f92d03ab3b18d5e523989);
+            
+        
+
+        marker_68b4c9e1ed9fa04826301f727f386daa.bindPopup(popup_fb6ee612fe1c0f69ed7147671707f10f)
+        ;
+
+        
+    
+    
+            marker_68b4c9e1ed9fa04826301f727f386daa.bindTooltip(
+                `<div>
+                     Site 4321 — TOORAK_RD / AUBURN_RD | Stop 4 of 4 (2nd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_68b4c9e1ed9fa04826301f727f386daa.setIcon(div_icon_f24025c694497ecd33c8407315789d1e);
+            
+    
+            var poly_line_f8ba0a91c91940e72aa1b060417eafc3 = L.polyline(
+                [[-37.85174416297179, 145.09434442834655], [-37.846981162971794, 145.05264742834655]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_f8ba0a91c91940e72aa1b060417eafc3.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_04959baa996fe14c99e3115ed8b916b6 = L.marker(
+                [-37.84936266297179, 145.07349592834655],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_8e008d40b1b338c0d1a09788026c59f7 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 3,410\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 8.4 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_04959baa996fe14c99e3115ed8b916b6.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 2000 ↔ Site 4043 | Flow (11AM): 3,410 veh/hr | Speed: 32.0 km/h | Travel time: 8.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_04959baa996fe14c99e3115ed8b916b6.setIcon(div_icon_8e008d40b1b338c0d1a09788026c59f7);
+            
+    
+            var poly_line_670ddb4c861dc3bf82f861ecb81d61d6 = L.polyline(
+                [[-37.84719395497279, 145.05280376837902], [-37.82292895497279, 145.05746476837902]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_670ddb4c861dc3bf82f861ecb81d61d6.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 4043 ↔ Site 3120 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 5.9 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_86f19d0de258aa52468ea8be0fa1f910 = L.marker(
+                [-37.83506145497279, 145.05513426837902],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_8e32f079d031f69be0c81cab01a0af9c = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,891\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 5.9 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_86f19d0de258aa52468ea8be0fa1f910.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 4043 ↔ Site 3120 | Flow (11AM): 2,891 veh/hr | Speed: 32.0 km/h | Travel time: 5.9 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_86f19d0de258aa52468ea8be0fa1f910.setIcon(div_icon_8e32f079d031f69be0c81cab01a0af9c);
+            
+    
+            var poly_line_25fe62ba997263f720279ab7b723bd4c = L.polyline(
+                [[-37.822717549101185, 145.05725781426645], [-37.82509054910118, 145.04330781426646]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_25fe62ba997263f720279ab7b723bd4c.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3120 ↔ Site 4266 | Flow (11AM): 2,620 veh/hr | Speed: 32.0 km/h | Travel time: 4.0 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_0f70b2eef53afa808b6396f61385c20f = L.marker(
+                [-37.82390404910119, 145.05028281426644],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_04b17aa20c46ac82c148641c6db68253 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,620\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 4.0 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_0f70b2eef53afa808b6396f61385c20f.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3120 ↔ Site 4266 | Flow (11AM): 2,620 veh/hr | Speed: 32.0 km/h | Travel time: 4.0 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_0f70b2eef53afa808b6396f61385c20f.setIcon(div_icon_04b17aa20c46ac82c148641c6db68253);
+            
+    
+            var poly_line_e0d1cc917f14f4df9b23e4125fdabbea = L.polyline(
+                [[-37.82511383981534, 145.04343092275], [-37.81500783981534, 145.02666492274997]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_e0d1cc917f14f4df9b23e4125fdabbea.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 4266 ↔ Site 3002 | Flow (11AM): 2,463 veh/hr | Speed: 32.0 km/h | Travel time: 5.6 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_1e71fd9a738ac34a166c89a712c22a7e = L.marker(
+                [-37.82006083981534, 145.03504792274998],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_40f50cc5f39878df68d42e3f009ecabb = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,463\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 5.6 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_1e71fd9a738ac34a166c89a712c22a7e.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 4266 ↔ Site 3002 | Flow (11AM): 2,463 veh/hr | Speed: 32.0 km/h | Travel time: 5.6 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1e71fd9a738ac34a166c89a712c22a7e.setIcon(div_icon_40f50cc5f39878df68d42e3f009ecabb);
+            
+    
+            var poly_line_d8164c62f3343419ff88428b6f512b8c = L.polyline(
+                [[-37.815187399590656, 145.02675019893599], [-37.80897839959066, 145.027635198936]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_d8164c62f3343419ff88428b6f512b8c.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3002 ↔ Site 3662 | Flow (11AM): 2,577 veh/hr | Speed: 32.0 km/h | Travel time: 2.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_436c49e3569adf17073e93b6725228eb = L.marker(
+                [-37.812082899590656, 145.027192698936],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_4882ff3a7d3ee952abd8f1bc5090f7de = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,577\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 2.4 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_436c49e3569adf17073e93b6725228eb.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3002 ↔ Site 3662 | Flow (11AM): 2,577 veh/hr | Speed: 32.0 km/h | Travel time: 2.4 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_436c49e3569adf17073e93b6725228eb.setIcon(div_icon_4882ff3a7d3ee952abd8f1bc5090f7de);
+            
+    
+            var poly_line_a2a64b4e2b2a51277fe25b649e90d3d4 = L.polyline(
+                [[-37.80899038247043, 145.02763307541255], [-37.79482238247042, 145.03064107541255]],
+                {"bubblingMouseEvents": true, "className": "route-line route3", "color": "#ff009d", "dashArray": null, "dashOffset": null, "fill": false, "fillColor": "#ff009d", "fillOpacity": 0.2, "fillRule": "evenodd", "lineCap": "round", "lineJoin": "round", "noClip": false, "opacity": 0.95, "smoothFactor": 1.0, "stroke": true, "weight": 7}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            poly_line_a2a64b4e2b2a51277fe25b649e90d3d4.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3662 ↔ Site 2820 | Flow (11AM): 2,241 veh/hr | Speed: 32.0 km/h | Travel time: 3.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+            var marker_99d66ff134dc2a2116ac9f7818388003 = L.marker(
+                [-37.80190638247042, 145.02913707541256],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_872b09d488aac4118ad996284e195046 = L.divIcon({
+  "html": "\u003cdiv class=\"route-label-marker route3\" style=\"display:none;\"\u003e\u003cdiv style=\"background-color:#ff009d;color:white;font-family:Arial,sans-serif;font-size:10px;font-weight:bold;padding:3px 5px;border-radius:4px;width:78px;white-space:normal;word-wrap:break-word;box-shadow:1px 1px 3px rgba(0,0,0,0.4);line-height:1.3;text-align:center;\"\u003eVehicle: 2,241\u003cbr\u003eSpeed: 32.0 km/h\u003cbr\u003eTravel: 3.7 min\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [86, 60],
+  "iconAnchor": [43, 30],
+  "className": "empty",
+});
+        
+    
+            marker_99d66ff134dc2a2116ac9f7818388003.bindTooltip(
+                `<div>
+                     3rd Best Route: Site 3662 ↔ Site 2820 | Flow (11AM): 2,241 veh/hr | Speed: 32.0 km/h | Travel time: 3.7 min (inc. 0.5 min delay)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_99d66ff134dc2a2116ac9f7818388003.setIcon(div_icon_872b09d488aac4118ad996284e195046);
+            
+    
+            var marker_08cce737119a4ab3cf976fb55ce5b4c1 = L.marker(
+                [-37.84716, 145.052627],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_0066574b429a8cbd9e2f303207940628 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route3\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route3\" style=\"background-color:#ff009d;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e1\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_ad6f2911e73e14ed79f71a5ad58bd9f2 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_5f1a37977e3e9be905fba286fffeb423 = $(`<div id="html_5f1a37977e3e9be905fba286fffeb423" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 1 of 5 (3rd Best Route)</b><br><b>Site 4043</b> - CANTERBURY_RD / MONT_ALBERT_RD<br>Predicted flow (11AM): <b>2,891</b> veh/hr</div></div>`)[0];
+                popup_ad6f2911e73e14ed79f71a5ad58bd9f2.setContent(html_5f1a37977e3e9be905fba286fffeb423);
+            
+        
+
+        marker_08cce737119a4ab3cf976fb55ce5b4c1.bindPopup(popup_ad6f2911e73e14ed79f71a5ad58bd9f2)
+        ;
+
+        
+    
+    
+            marker_08cce737119a4ab3cf976fb55ce5b4c1.bindTooltip(
+                `<div>
+                     Site 4043 — CANTERBURY_RD / MONT_ALBERT_RD | Stop 1 of 5 (3rd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_08cce737119a4ab3cf976fb55ce5b4c1.setIcon(div_icon_0066574b429a8cbd9e2f303207940628);
+            
+    
+            var marker_510557d9e034ac48dc8d11725a36b3fe = L.marker(
+                [-37.822895, 145.057288],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_225c8d6525339a60eb4be8e255be2e37 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route3\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route3\" style=\"background-color:#ff009d;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e2\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_2345d0cfdd603256a662b9296ddba12f = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_8761c167b081b98081e3c66bbd491d4d = $(`<div id="html_8761c167b081b98081e3c66bbd491d4d" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 2 of 5 (3rd Best Route)</b><br><b>Site 3120</b> - BURKE_RD / COTHAM_RD<br>Predicted flow (11AM): <b>2,620</b> veh/hr</div></div>`)[0];
+                popup_2345d0cfdd603256a662b9296ddba12f.setContent(html_8761c167b081b98081e3c66bbd491d4d);
+            
+        
+
+        marker_510557d9e034ac48dc8d11725a36b3fe.bindPopup(popup_2345d0cfdd603256a662b9296ddba12f)
+        ;
+
+        
+    
+    
+            marker_510557d9e034ac48dc8d11725a36b3fe.bindTooltip(
+                `<div>
+                     Site 3120 — BURKE_RD / COTHAM_RD | Stop 2 of 5 (3rd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_510557d9e034ac48dc8d11725a36b3fe.setIcon(div_icon_225c8d6525339a60eb4be8e255be2e37);
+            
+    
+            var marker_35944f66386c68975c945629499359a3 = L.marker(
+                [-37.825268, 145.043338],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_0d654495ed33dcc68425169d222aadd6 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route3\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route3\" style=\"background-color:#ff009d;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e3\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_06c462582c3dd958be4c24cb0322b0a9 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_cec01eff4bb61e684831d48e3f1f925f = $(`<div id="html_cec01eff4bb61e684831d48e3f1f925f" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 3 of 5 (3rd Best Route)</b><br><b>Site 4266</b> - AUBURN_RD / BURWOOD_RD<br>Predicted flow (11AM): <b>2,463</b> veh/hr</div></div>`)[0];
+                popup_06c462582c3dd958be4c24cb0322b0a9.setContent(html_cec01eff4bb61e684831d48e3f1f925f);
+            
+        
+
+        marker_35944f66386c68975c945629499359a3.bindPopup(popup_06c462582c3dd958be4c24cb0322b0a9)
+        ;
+
+        
+    
+    
+            marker_35944f66386c68975c945629499359a3.bindTooltip(
+                `<div>
+                     Site 4266 — AUBURN_RD / BURWOOD_RD | Stop 3 of 5 (3rd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_35944f66386c68975c945629499359a3.setIcon(div_icon_0d654495ed33dcc68425169d222aadd6);
+            
+    
+            var marker_1fca01481513ae233bd67d6ecb68f41c = L.marker(
+                [-37.815162, 145.026572],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_66fd045ceb0722158bd9c68c7041ce04 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route3\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route3\" style=\"background-color:#ff009d;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e4\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_8afe358686fcd91bb920541b78f16785 = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_fc0492b207907b851baf980091bf74b0 = $(`<div id="html_fc0492b207907b851baf980091bf74b0" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 4 of 5 (3rd Best Route)</b><br><b>Site 3002</b> - DENMARK_ST / BARKERS_RD<br>Predicted flow (11AM): <b>2,577</b> veh/hr</div></div>`)[0];
+                popup_8afe358686fcd91bb920541b78f16785.setContent(html_fc0492b207907b851baf980091bf74b0);
+            
+        
+
+        marker_1fca01481513ae233bd67d6ecb68f41c.bindPopup(popup_8afe358686fcd91bb920541b78f16785)
+        ;
+
+        
+    
+    
+            marker_1fca01481513ae233bd67d6ecb68f41c.bindTooltip(
+                `<div>
+                     Site 3002 — DENMARK_ST / BARKERS_RD | Stop 4 of 5 (3rd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1fca01481513ae233bd67d6ecb68f41c.setIcon(div_icon_66fd045ceb0722158bd9c68c7041ce04);
+            
+    
+            var marker_727597d8431857aaa4cdedfe74e23e79 = L.marker(
+                [-37.808953, 145.027457],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var div_icon_3d36de42f90f115905a9611d3e575868 = L.divIcon({
+  "html": "\u003cdiv class=\"route-stop-marker route3\" style=\"display:none;\"\u003e\u003cdiv class=\"route-stop route3\" style=\"background-color:#ff009d;color:white;font-weight:bold;font-family:Arial,sans-serif;font-size:11px;border-radius:50%;width:20px;height:20px;display:flex;align-items:center;justify-content:center;border:2px solid white;box-shadow:1px 1px 3px rgba(0,0,0,0.5);\"\u003e5\u003c/div\u003e\u003c/div\u003e",
+  "iconSize": [24, 24],
+  "iconAnchor": [28, 28],
+  "className": "empty",
+});
+        
+    
+        var popup_99b98b6c093b8b1bb6756180b08248ad = L.popup({
+  "maxWidth": 260,
+});
+
+        
+            
+                var html_48d527bb88fed8edf9fdd5f9b5c8d3e9 = $(`<div id="html_48d527bb88fed8edf9fdd5f9b5c8d3e9" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Stop 5 of 5 (3rd Best Route)</b><br><b>Site 3662</b> - HIGH_ST / BURKE_RD<br>Predicted flow (11AM): <b>2,241</b> veh/hr</div></div>`)[0];
+                popup_99b98b6c093b8b1bb6756180b08248ad.setContent(html_48d527bb88fed8edf9fdd5f9b5c8d3e9);
+            
+        
+
+        marker_727597d8431857aaa4cdedfe74e23e79.bindPopup(popup_99b98b6c093b8b1bb6756180b08248ad)
+        ;
+
+        
+    
+    
+            marker_727597d8431857aaa4cdedfe74e23e79.bindTooltip(
+                `<div>
+                     Site 3662 — HIGH_ST / BURKE_RD | Stop 5 of 5 (3rd Best Route)
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_727597d8431857aaa4cdedfe74e23e79.setIcon(div_icon_3d36de42f90f115905a9611d3e575868);
+            
+    
+            var marker_1aa3d3265fad1a8e74ca1c33cd0acf96 = L.marker(
+                [-37.851923, 145.094324],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_bead58aebe150dd7b9f2270b65932125 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "green",
+  "iconColor": "white",
+  "icon": "play",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_7e87aeeaf251b38090d7d4780d7f89a0 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_a119bafb221e144c4eac574d89b21665 = $(`<div id="html_a119bafb221e144c4eac574d89b21665" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>ORIGIN</b><br><b>Site 2000</b> - WARRIGAL_RD / TOORAK_RD<br>Predicted flow (11AM): <b>3,410</b> veh/hr</div></div>`)[0];
+                popup_7e87aeeaf251b38090d7d4780d7f89a0.setContent(html_a119bafb221e144c4eac574d89b21665);
+            
+        
+
+        marker_1aa3d3265fad1a8e74ca1c33cd0acf96.bindPopup(popup_7e87aeeaf251b38090d7d4780d7f89a0)
+        ;
+
+        
+    
+    
+            marker_1aa3d3265fad1a8e74ca1c33cd0acf96.bindTooltip(
+                `<div>
+                     Site 2000 — WARRIGAL_RD / TOORAK_RD | ORIGIN
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_1aa3d3265fad1a8e74ca1c33cd0acf96.setIcon(icon_bead58aebe150dd7b9f2270b65932125);
+            
+    
+            var marker_a174aafec970579dafee8994e68cd2eb = L.marker(
+                [-37.794785, 145.030465],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_18370c121dccb02e131b1873b6decb49 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "red",
+  "iconColor": "white",
+  "icon": "flag-checkered",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_1d8dd64fc5288a08c831c843fd7ea357 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_454e33b2403a5545aa9aa75246817c99 = $(`<div id="html_454e33b2403a5545aa9aa75246817c99" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>DESTINATION</b><br><b>Site 2820</b> - TOORAK_RD / KOOYONG_RD<br>Predicted flow (11AM): <b>1,223</b> veh/hr</div></div>`)[0];
+                popup_1d8dd64fc5288a08c831c843fd7ea357.setContent(html_454e33b2403a5545aa9aa75246817c99);
+            
+        
+
+        marker_a174aafec970579dafee8994e68cd2eb.bindPopup(popup_1d8dd64fc5288a08c831c843fd7ea357)
+        ;
+
+        
+    
+    
+            marker_a174aafec970579dafee8994e68cd2eb.bindTooltip(
+                `<div>
+                     Site 2820 — TOORAK_RD / KOOYONG_RD | DESTINATION
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_a174aafec970579dafee8994e68cd2eb.setIcon(icon_18370c121dccb02e131b1873b6decb49);
+            
+    
+            var marker_9679779b44402f67433802d141341703 = L.marker(
+                [-37.78661, 145.06202],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_c9bb0cec5b28d361bb3c401bba2ee3fe = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_9805886955dc2bdb4fb9bcdb8b3e22c4 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_2ce22fe7a5e4505686ed42d389c2f71e = $(`<div id="html_2ce22fe7a5e4505686ed42d389c2f71e" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 2825</b> - TOORAK_RD / BURKE_RD<br>Predicted flow (11AM): <b>705</b> veh/hr</div></div>`)[0];
+                popup_9805886955dc2bdb4fb9bcdb8b3e22c4.setContent(html_2ce22fe7a5e4505686ed42d389c2f71e);
+            
+        
+
+        marker_9679779b44402f67433802d141341703.bindPopup(popup_9805886955dc2bdb4fb9bcdb8b3e22c4)
+        ;
+
+        
+    
+    
+            marker_9679779b44402f67433802d141341703.bindTooltip(
+                `<div>
+                     Site 2825 — TOORAK_RD / BURKE_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_9679779b44402f67433802d141341703.setIcon(icon_c9bb0cec5b28d361bb3c401bba2ee3fe);
+            
+    
+            var marker_f8aec93abe1e5f6e0260c1e1111f84b1 = L.marker(
+                [-37.781739, 145.077331],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_543d9b4edd0609e92ca0c3a019a62785 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_421025e1af87ed65fa333d282ffbc2f1 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_a6f4758d8d3267422c25499595b137ac = $(`<div id="html_a6f4758d8d3267422c25499595b137ac" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 2827</b> - TOORAK_RD / GLENFERRIE_RD<br>Predicted flow (11AM): <b>2,276</b> veh/hr</div></div>`)[0];
+                popup_421025e1af87ed65fa333d282ffbc2f1.setContent(html_a6f4758d8d3267422c25499595b137ac);
+            
+        
+
+        marker_f8aec93abe1e5f6e0260c1e1111f84b1.bindPopup(popup_421025e1af87ed65fa333d282ffbc2f1)
+        ;
+
+        
+    
+    
+            marker_f8aec93abe1e5f6e0260c1e1111f84b1.bindTooltip(
+                `<div>
+                     Site 2827 — TOORAK_RD / GLENFERRIE_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_f8aec93abe1e5f6e0260c1e1111f84b1.setIcon(icon_543d9b4edd0609e92ca0c3a019a62785);
+            
+    
+            var marker_59442c272e06eaab9dcf867bf44653c1 = L.marker(
+                [-37.825227, 145.077947],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_9523308bb6ed2cd99d879d103e7ae612 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_9d52cd17f112dc816213f14421278551 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_8a02eb4d17419ed773fe103f12978cb7 = $(`<div id="html_8a02eb4d17419ed773fe103f12978cb7" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 3127</b> - CAMBERWELL_RD / RIVERSDALE_RD<br>Predicted flow (11AM): <b>2,108</b> veh/hr</div></div>`)[0];
+                popup_9d52cd17f112dc816213f14421278551.setContent(html_8a02eb4d17419ed773fe103f12978cb7);
+            
+        
+
+        marker_59442c272e06eaab9dcf867bf44653c1.bindPopup(popup_9d52cd17f112dc816213f14421278551)
+        ;
+
+        
+    
+    
+            marker_59442c272e06eaab9dcf867bf44653c1.bindTooltip(
+                `<div>
+                     Site 3127 — CAMBERWELL_RD / RIVERSDALE_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_59442c272e06eaab9dcf867bf44653c1.setIcon(icon_9523308bb6ed2cd99d879d103e7ae612);
+            
+    
+            var marker_d067d1bd57692ea68af85f39867525b4 = L.marker(
+                [-37.796213, 145.083507],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_a4813c87aa03b610ddcd5dc4774f89b5 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_2b7aacb87e2fdd7b4b89e81ee96812e0 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_5014eeb0be74f91a872b806a4be1aed6 = $(`<div id="html_5014eeb0be74f91a872b806a4be1aed6" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 3180</b> - BURKE_RD / BARKERS_RD<br>Predicted flow (11AM): <b>1,111</b> veh/hr</div></div>`)[0];
+                popup_2b7aacb87e2fdd7b4b89e81ee96812e0.setContent(html_5014eeb0be74f91a872b806a4be1aed6);
+            
+        
+
+        marker_d067d1bd57692ea68af85f39867525b4.bindPopup(popup_2b7aacb87e2fdd7b4b89e81ee96812e0)
+        ;
+
+        
+    
+    
+            marker_d067d1bd57692ea68af85f39867525b4.bindTooltip(
+                `<div>
+                     Site 3180 — BURKE_RD / BARKERS_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_d067d1bd57692ea68af85f39867525b4.setIcon(icon_a4813c87aa03b610ddcd5dc4774f89b5);
+            
+    
+            var marker_61b9a81d2573e2a787db0d4f5ab7c338 = L.marker(
+                [-37.837475, 145.096868],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_47beba1ee80a7e25291c160ea8ba6586 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_4340d4e4c3f64dc9d28bfffb3cc562c2 = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_cb82437d3d25bdfbe502882c6e8f8198 = $(`<div id="html_cb82437d3d25bdfbe502882c6e8f8198" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 3682</b> - BURKE_RD / HIGH_ST<br>Predicted flow (11AM): <b>2,154</b> veh/hr</div></div>`)[0];
+                popup_4340d4e4c3f64dc9d28bfffb3cc562c2.setContent(html_cb82437d3d25bdfbe502882c6e8f8198);
+            
+        
+
+        marker_61b9a81d2573e2a787db0d4f5ab7c338.bindPopup(popup_4340d4e4c3f64dc9d28bfffb3cc562c2)
+        ;
+
+        
+    
+    
+            marker_61b9a81d2573e2a787db0d4f5ab7c338.bindTooltip(
+                `<div>
+                     Site 3682 — BURKE_RD / HIGH_ST
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_61b9a81d2573e2a787db0d4f5ab7c338.setIcon(icon_47beba1ee80a7e25291c160ea8ba6586);
+            
+    
+            var marker_49285c60aa262f73bf923eb84e8c8932 = L.marker(
+                [-37.794143, 145.069333],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_74eb01260635270ad5bc9f01a0a19487 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_b7e4a7c9760eee49d21e31ff8e84cefd = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_5df3232894af3da00c4a4dfa45d68f50 = $(`<div id="html_5df3232894af3da00c4a4dfa45d68f50" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 4051</b> - WHITEHORSE_RD / SPRINGVALE_RD<br>Predicted flow (11AM): <b>851</b> veh/hr</div></div>`)[0];
+                popup_b7e4a7c9760eee49d21e31ff8e84cefd.setContent(html_5df3232894af3da00c4a4dfa45d68f50);
+            
+        
+
+        marker_49285c60aa262f73bf923eb84e8c8932.bindPopup(popup_b7e4a7c9760eee49d21e31ff8e84cefd)
+        ;
+
+        
+    
+    
+            marker_49285c60aa262f73bf923eb84e8c8932.bindTooltip(
+                `<div>
+                     Site 4051 — WHITEHORSE_RD / SPRINGVALE_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_49285c60aa262f73bf923eb84e8c8932.setIcon(icon_74eb01260635270ad5bc9f01a0a19487);
+            
+    
+            var marker_844788b931041ae2c851c6de94f8f988 = L.marker(
+                [-37.804969, 145.08176],
+                {
+}
+            ).addTo(map_d13bf794e2bb909a2469deb5700fecfd);
+        
+    
+            var icon_5e36600eb839ddc74762fb6caa627868 = L.AwesomeMarkers.icon(
+                {
+  "markerColor": "lightgray",
+  "iconColor": "white",
+  "icon": "circle",
+  "prefix": "fa",
+  "extraClasses": "fa-rotate-0",
+}
+            );
+        
+    
+        var popup_f2b51b588045275e24f9335c7d34da0c = L.popup({
+  "maxWidth": 300,
+});
+
+        
+            
+                var html_befb7137e9f845d14044e33a38e24e75 = $(`<div id="html_befb7137e9f845d14044e33a38e24e75" style="width: 100.0%; height: 100.0%;"><div style='font-family:Arial,sans-serif;font-size:12px;'><b>Site 4057</b> - CANTERBURY_RD / BALWYN_RD<br>Predicted flow (11AM): <b>1,567</b> veh/hr</div></div>`)[0];
+                popup_f2b51b588045275e24f9335c7d34da0c.setContent(html_befb7137e9f845d14044e33a38e24e75);
+            
+        
+
+        marker_844788b931041ae2c851c6de94f8f988.bindPopup(popup_f2b51b588045275e24f9335c7d34da0c)
+        ;
+
+        
+    
+    
+            marker_844788b931041ae2c851c6de94f8f988.bindTooltip(
+                `<div>
+                     Site 4057 — CANTERBURY_RD / BALWYN_RD
+                 </div>`,
+                {
+  "sticky": true,
+}
+            );
+        
+    
+                marker_844788b931041ae2c851c6de94f8f988.setIcon(icon_5e36600eb839ddc74762fb6caa627868);
+            
+</script>
+</html>
