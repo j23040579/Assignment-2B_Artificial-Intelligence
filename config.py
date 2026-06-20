@@ -9,10 +9,21 @@ route-finder script can never drift out of sync with each other.
 """
 
 # ── Sequence length used by every RNN-family model (RNN / LSTM / GRU) ──────────
-SEQ_LENGTH = 3
+# Must match SEQ_LENGTH in RNN.py / LSTM.py / GRU.py — the models were
+# TRAINED expecting this many timesteps as input. If this value doesn't
+# match the training scripts, model.predict() at inference time will either
+# throw a shape-mismatch error or silently produce meaningless predictions.
+SEQ_LENGTH = 24
 
 # ── Dataset used to build the 24-hour sequences for prediction ─────────────────
 DATA_PATH = 'Dataset/Time.csv'
+
+# ── Shared training hyperparameters for RNN / LSTM / GRU ───────────────────────
+# Centralised here so RNN.py / LSTM.py / GRU.py all train under identical
+# conditions, making their MAE/RMSE/MAPE results directly comparable.
+EPOCHS     = 50
+BATCH_SIZE = 32
+TEST_SPLIT = 0.2
 
 # ── Per-model artefact paths ────────────────────────────────────────────────────
 # Add new entries here if you train additional architectures later

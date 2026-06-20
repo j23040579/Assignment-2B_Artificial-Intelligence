@@ -13,9 +13,10 @@ type, this script:
   3. Converts each road segment's predicted flow into a travel speed
      and time (including a 0.5 min junction delay per segment).
   4. Runs the A* search algorithm to find the fastest route from the
-     origin to the destination.
-  5. Prints the route and total driving time.
-  6. Renders a Folium map highlighting the best route (saved to an
+     origin to the destination, plus the 2nd and 3rd best alternatives.
+  5. Prints all three routes and their total driving times to the
+     console.
+  6. Renders a Folium map highlighting all three routes (saved to an
      HTML file and opened in your browser).
 
 Usage:
@@ -41,14 +42,20 @@ Sample output:
     Best path: 2000 –(412)- 3682 –(389)- 3127 –(401)- 4057 –(355)- 4032 –(298)- 2825
     Total Driving Time: 18.4 min
 
-    Map saved and opened: route_2000_to_2825_11AM.html
+    2nd Best path: 2000 –(412)- 4043 –(305)- 3120 –(298)- 4032 –(298)- 2825
+    Total Driving Time: 19.1 min
+
+    3rd Best path: 2000 –(412)- 3682 –(389)- 3127 –(401)- 3120 –(298)- 4032 –(298)- 2825
+    Total Driving Time: 19.6 min
+
+    Map saved and opened: routes_2000_to_2825_11AM.html
 """
 
 import sys
 
 from config import COORDS, HOUR_LABELS
 from model_utils import load_artefacts, load_long_data, predict_site_flows
-from route_finder import find_best_route,find_top_3_routes
+from route_finder import find_best_route, find_top_3_routes
 from route_map import build_route_map, save_and_open_map
 
 
@@ -125,22 +132,56 @@ def parse_args():
     return origin, destination, hour, model_name.upper()
 
 
-# ── Format the final route output ─────────────────────────────────────────────
+# ── Format a single route's output lines ──────────────────────────────────────
 def format_route_output(path, edges, total_time):
     """
-    Builds the two output lines:
-        Best path: A –(flow)- B –(flow)- C ...
+    Builds the two output lines for a single route:
+        <path string with flows>
         Total Driving Time: X.X min
+
+    Used for all three routes (best / 2nd best / 3rd best) — the
+    caller prepends the appropriate "Best path:" / "2nd Best path:" /
+    "3rd Best path:" label.
     """
     parts = [str(path[0])]
     for _, to_site, flow, _ in edges:
         parts.append(f"\u2013({flow})-")   # \u2013 = en-dash
         parts.append(str(to_site))
 
-    best_path_line  = "Best path: " + " ".join(parts)
+    path_line       = " ".join(parts)
     total_time_line = f"Total Driving Time: {total_time:.1f} min"
 
-    return best_path_line, total_time_line
+    return path_line, total_time_line
+
+
+# ── Route rank labels, in order ─────────────────────────────────────────────────
+ROUTE_RANK_LABELS = ["Best path", "2nd Best path", "3rd Best path"]
+
+
+def print_routes(routes):
+    """
+    Prints every route found (up to 3) to the console in the format:
+        Best path: 2000 –(412)- 3682 –(389)- ... –(298)- 2825
+        Total Driving Time: 18.4 min
+
+        2nd Best path: ...
+        Total Driving Time: ... min
+
+        3rd Best path: ...
+        Total Driving Time: ... min
+    """
+    for idx, (path, edges, total_time) in enumerate(routes):
+        if idx >= len(ROUTE_RANK_LABELS):
+            label = f"{idx + 1}th Best path"
+        else:
+            label = ROUTE_RANK_LABELS[idx]
+
+        path_line, total_time_line = format_route_output(path, edges, total_time)
+
+        if idx > 0:
+            print()  # blank line between routes
+        print(f"{label}: {path_line}")
+        print(total_time_line)
 
 
 # ── Main ──────────────────────────────────────────────────────────────────────
@@ -186,26 +227,22 @@ def main():
         COORDS.keys(), hour, model, scaler, le, df_long
     )
 
-    # ── Step 4: Find the fastest route with A* ────────────────────────────────
+    # ── Step 4: Find the top 3 fastest routes with A* (Yen's algorithm) ────────
     print(f"\n[Step 4/4] Running A* search: {origin} → {destination} …")
-    path, edges, total_time = find_best_route(origin, destination, site_flows)
+    routes = find_top_3_routes(origin, destination, site_flows)
 
-    if path is None:
+    if not routes:
         print(
             f"\nNo route found between site {origin} and site {destination}.\n"
             f"The sites may be disconnected in the road network."
         )
         sys.exit(1)
 
-    # ── Output ────────────────────────────────────────────────────────────────
-    best_path_line, total_time_line = format_route_output(path, edges, total_time)
-
+    # ── Output: print best, 2nd best, and 3rd best (whichever were found) ──────
     print()
-    print(best_path_line)
-    print(total_time_line)
+    print_routes(routes)
 
-    # ── Render and open map ───────────────────────────────────────────────────
-    routes = find_top_3_routes(origin, destination, site_flows)
+    # ── Render and open map (same 3 routes shown in the console) ───────────────
     m, output_path = build_route_map(origin, destination, routes, site_flows, hour)
     abs_path = save_and_open_map(m, output_path)
     print(f"\nMap saved and opened: {abs_path}")
