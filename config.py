@@ -13,7 +13,7 @@ route-finder script can never drift out of sync with each other.
 # TRAINED expecting this many timesteps as input. If this value doesn't
 # match the training scripts, model.predict() at inference time will either
 # throw a shape-mismatch error or silently produce meaningless predictions.
-SEQ_LENGTH = 3
+SEQ_LENGTH = 24
 
 # ── Dataset used to build the 24-hour sequences for prediction ─────────────────
 DATA_PATH = 'Dataset/Time.csv'
