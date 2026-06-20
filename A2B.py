@@ -55,9 +55,8 @@ import sys
 
 from config import COORDS, HOUR_LABELS
 from model_utils import load_artefacts, load_long_data, predict_site_flows
-from route_finder import find_best_route, find_top_3_routes
+from route_finder import find_top_3_routes
 from route_map import build_route_map, save_and_open_map
-
 
 
 # ── Parse and validate command-line arguments ─────────────────────────────────
